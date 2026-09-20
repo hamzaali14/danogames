@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DanoGames — Thousands of Free Games, Instantly</title>
+<meta name="description" content="Play thousands of free online games instantly — no downloads, no signup. Puzzle, racing, action, arcade and more, all free forever.">
+<meta name="theme-color" content="#0a0b14">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon-192.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a href="#" class="brand" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
+      <span class="mark">🎮</span>
+      <span>Dano<span class="name-alt">Games</span></span>
+    </a>
+    <nav class="nav-cats" id="navCats" aria-label="Categories"></nav>
+    <div class="header-actions">
+      <div class="search-box">
+        <span class="sicon">🔍</span>
+        <input id="headerSearchInput" type="text" placeholder="Search games..." autocomplete="off">
+      </div>
+      <button class="icon-btn" id="favToggle" title="Favorites" aria-label="Favorites">♥</button>
+      <button class="icon-btn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">☀️</button>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <span class="eyebrow">✨ 100% Free · No Downloads · Play Instantly</span>
+    <h1>Thousands of games.<br>One <span class="grad">premium</span> playground.</h1>
+    <p class="sub">Every game on DanoGames is completely free — jump straight into puzzle, racing, arcade, shooting and adventure games with zero signup and zero hassle.</p>
+    <form id="heroSearchForm" class="hero-search">
+      <input id="heroSearchInput" type="text" placeholder="What do you want to play today?" autocomplete="off">
+      <button type="submit">Search</button>
+    </form>
+    <div class="hero-stats">
+      <div><b id="statGameCount">0</b>Free games</div>
+      <div><b id="statCatCount">0</b>Categories</div>
+      <div><b>$0</b>Forever</div>
+    </div>
+    <div class="pill-rail" id="pillRail"></div>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <section class="section" id="trendingSection">
+    <div class="section-head">
+      <h2>🔥 Trending Now</h2>
+      <span class="tag">Popular picks this week</span>
+    </div>
+    <div class="rail" id="trendingRail"></div>
+  </section>
+
+  <section class="section hidden" id="continueSection">
+    <div class="section-head">
+      <h2>⏱️ Continue Playing</h2>
+    </div>
+    <div class="rail" id="continueRail"></div>
+  </section>
+
+  <section class="section" id="mainGridSection">
+    <div class="section-head">
+      <h2 id="gridTitle">All Games</h2>
+      <span class="tag" id="gridTag"></span>
+    </div>
+    <div class="grid" id="mainGrid"></div>
+    <div class="empty-state hidden" id="emptyState">
+      <div class="emoji">🕹️</div>
+      <p>No games found. Try another search or category.</p>
+    </div>
+    <div class="load-more-wrap" id="loadMoreWrap">
+      <button class="btn-ghost" id="loadMoreBtn">Load more games</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="brand" style="font-size:16px;">
+        <span class="mark" style="width:28px;height:28px;font-size:14px;">🎮</span>
+        <span>Dano<span class="name-alt">Games</span></span>
+      </div>
+      <div class="footer-links">
+        <a href="#" id="favToggleFooter">Favorites</a>
+        <a href="https://gamemonetize.com" target="_blank" rel="noopener">Game Partner: GameMonetize</a>
+      </div>
+    </div>
+    <p>Made with <span class="heart">♥</span> for Daniyah — and every kid who just wants to play. All games are free forever, no accounts, no payments.</p>
+  </div>
+</footer>
+
+<!-- Player Modal -->
+<div class="player-overlay" id="playerOverlay">
+  <div class="player-modal">
+    <div class="player-top">
+      <div class="ptitle">
+        <img id="playerThumb" alt="">
+        <div>
+          <h3 id="playerTitle">Loading…</h3>
+          <div class="pcat" id="playerCat"></div>
+        </div>
+      </div>
+      <div class="pactions">
+        <button class="icon-btn" id="playerFav" title="Save">♡ Save</button>
+        <button class="icon-btn" id="playerFullscreen" title="Fullscreen">⛶</button>
+        <button class="icon-btn" id="closePlayer" title="Close" aria-label="Close">✕</button>
+      </div>
+    </div>
+    <div class="player-stage">
+      <div class="loading-spin" id="playerLoading"><div class="spinner"></div><span>Loading game…</span></div>
+      <iframe id="playerFrame" allow="fullscreen; gamepad; autoplay" allowfullscreen loading="eager"></iframe>
+    </div>
+    <div class="player-desc">
+      <p id="playerDesc"></p>
+      <div class="tags" id="playerTags"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Install banner -->
+<div class="install-banner" id="installBanner">
+  <button class="ib-close" id="ibClose" aria-label="Dismiss">✕</button>
+  <div class="ib-icon">📲</div>
+  <div>
+    <h4>Install DanoGames</h4>
+    <p>Add to your home screen for instant, app-like access.</p>
+    <div class="ib-actions">
+      <button class="ib-yes" id="ibYes">Install</button>
+      <button class="ib-no" id="ibNo">Not now</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/games-data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  document.getElementById("favToggleFooter").addEventListener("click", function(e){
+    e.preventDefault();
+    document.getElementById("favToggle").click();
+  });
+</script>
+</body>
+</html>

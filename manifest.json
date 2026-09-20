@@ -1,0 +1,16 @@
+{
+  "name": "DanoGames — Free Online Games",
+  "short_name": "DanoGames",
+  "description": "Thousands of free online games. No downloads, no signup, play instantly.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0b14",
+  "theme_color": "#0a0b14",
+  "orientation": "any",
+  "icons": [
+    { "src": "assets/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
