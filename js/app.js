@@ -277,17 +277,20 @@
     els.playerFav.textContent = isFav ? "♥ Saved" : "♡ Save";
 
     els.playerLoading.classList.remove("hidden");
+    els.playerFrame.onload = null;
     els.playerFrame.src = "about:blank";
     els.player.classList.add("open");
     document.body.style.overflow = "hidden";
 
     requestAnimationFrame(() => {
+      els.playerFrame.onload = () => { els.playerLoading.classList.add("hidden"); };
       els.playerFrame.src = g.url;
     });
   }
   function closePlayer() {
     els.player.classList.remove("open");
     document.body.style.overflow = "";
+    els.playerFrame.onload = null;
     els.playerFrame.src = "about:blank";
     currentGame = null;
     renderContinuePlaying();
