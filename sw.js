@@ -1,6 +1,7 @@
 // DanoGames service worker — caches the app shell so browsing the site works offline.
 // Games themselves are loaded from third-party servers (GameMonetize) and need internet.
-const CACHE_NAME = "danogames-shell-v1";
+const CACHE_NAME = "danogames-shell-v2";
+const GAME_SLUGS = ["snake","2048","memory","tictactoe","breakout","minesweeper","whackamole","flappy","simon","fifteen","mathsprint","rps"];
 const SHELL_ASSETS = [
   "./",
   "./index.html",
@@ -11,7 +12,9 @@ const SHELL_ASSETS = [
   "./assets/favicon.svg",
   "./assets/icon-192.svg",
   "./assets/icon-512.svg",
-  "./offline.html"
+  "./offline.html",
+  "./games/shared.css",
+  ...GAME_SLUGS.flatMap((slug) => [`./games/${slug}/index.html`, `./games/${slug}/thumb.svg`])
 ];
 
 self.addEventListener("install", (event) => {

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Flappy Block — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  .g-stage { background: #0e0f1a; }
+  #board { background: linear-gradient(#1a1c2e, #12131f); border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🐤 Flappy Block</div>
+    <div class="g-stats">Score <b id="score">0</b> Best <b id="best">0</b></div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <canvas id="board" width="360" height="480"></canvas>
+    <div class="g-overlay show" id="overlay">
+      <h2 id="overTitle">Flappy Block</h2>
+      <p id="overMsg">Tap, click, or press Space to flap and weave through the gaps.</p>
+      <button class="g-btn" id="again">Start</button>
+    </div>
+  </div>
+  <div class="g-hint">Space / Click / Tap to flap</div>
+</div>
+<script>
+(function(){
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  let bird, pipes, score, best, running, started, raf;
+  const GRAVITY = 0.45, FLAP = -7.5, GAP = 140, PIPE_W = 52, SPEED = 2.6;
+
+  best = parseInt(localStorage.getItem('dg_flappy_best') || '0');
+  document.getElementById('best').textContent = best;
+
+  function resetState() {
+    bird = { x: 80, y: H/2, vy: 0, r: 12 };
+    pipes = [{ x: W + 40, gapY: H/2 }];
+    score = 0;
+    document.getElementById('score').textContent = score;
+  }
+
+  function reset() {
+    resetState();
+    running = true; started = false;
+    document.getElementById('overlay').classList.remove('show');
+    cancelAnimationFrame(raf);
+    loop();
+  }
+
+  function loop() {
+    if (!running) return;
+    if (started) update();
+    draw();
+    raf = requestAnimationFrame(loop);
+  }
+
+  function update() {
+    bird.vy += GRAVITY;
+    bird.y += bird.vy;
+    if (bird.y - bird.r < 0) { bird.y = bird.r; bird.vy = 0; }
+    if (bird.y + bird.r > H) return endGame();
+
+    pipes.forEach(p => p.x -= SPEED);
+    if (pipes[pipes.length-1].x < W - 190) {
+      pipes.push({ x: W + 20, gapY: 70 + Math.random()*(H-140) });
+    }
+    pipes.forEach(p => {
+      if (!p.scored && p.x + PIPE_W < bird.x) {
+        p.scored = true; score++;
+        document.getElementById('score').textContent = score;
+      }
+      const inX = bird.x + bird.r > p.x && bird.x - bird.r < p.x + PIPE_W;
+      const inGap = bird.y - bird.r > p.gapY - GAP/2 && bird.y + bird.r < p.gapY + GAP/2;
+      if (inX && !inGap) endGame();
+    });
+    pipes = pipes.filter(p => p.x > -PIPE_W);
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#1a1c2e';
+    ctx.fillRect(0,0,W,H);
+    pipes.forEach(p => {
+      ctx.fillStyle = '#a855f7';
+      ctx.fillRect(p.x, 0, PIPE_W, p.gapY - GAP/2);
+      ctx.fillRect(p.x, p.gapY + GAP/2, PIPE_W, H - (p.gapY + GAP/2));
+    });
+    ctx.beginPath();
+    ctx.arc(bird.x, bird.y, bird.r, 0, Math.PI*2);
+    ctx.fillStyle = '#ff4fd8';
+    ctx.fill();
+  }
+
+  function flap() {
+    if (!running) return;
+    if (!started) started = true;
+    bird.vy = FLAP;
+  }
+
+  function endGame() {
+    running = false;
+    cancelAnimationFrame(raf);
+    if (score > best) { best = score; localStorage.setItem('dg_flappy_best', best); document.getElementById('best').textContent = best; }
+    document.getElementById('overTitle').textContent = 'Game Over';
+    document.getElementById('overMsg').textContent = 'Score: ' + score;
+    document.getElementById('again').textContent = 'Try Again';
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  document.addEventListener('keydown', (e) => { if (e.code === 'Space') { e.preventDefault(); flap(); } });
+  canvas.addEventListener('mousedown', flap);
+  canvas.addEventListener('touchstart', (e) => { e.preventDefault(); flap(); }, {passive:false});
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', () => { reset(); flap(); });
+  resetState();
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+/* Shared game-shell styling — loaded by every original DanoGames game */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; height: 100%;
+  background: #0a0b14;
+  color: #f2f3f8;
+  font-family: 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+.g-shell {
+  display: flex; flex-direction: column;
+  height: 100%; width: 100%;
+}
+.g-hud {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px;
+  background: #12131f;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+  font-size: 14px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.g-hud .g-title { font-weight: 800; font-size: 15px; letter-spacing: -0.01em; }
+.g-hud .g-stats { display: flex; gap: 16px; color: #9295ad; font-weight: 600; }
+.g-hud .g-stats b { color: #f2f3f8; }
+.g-btn {
+  border: none; border-radius: 10px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #a855f7, #ff4fd8);
+  color: #fff; font-weight: 700; font-size: 13px;
+  cursor: pointer; font-family: inherit;
+  transition: filter .15s ease, transform .15s ease;
+}
+.g-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.g-btn.ghost {
+  background: #1e2032; border: 1px solid rgba(255,255,255,0.1); color: #f2f3f8;
+}
+.g-stage {
+  flex: 1; min-height: 0;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  padding: 16px;
+}
+.g-overlay {
+  position: absolute; inset: 0;
+  background: rgba(10,11,20,0.88);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; text-align: center; padding: 24px;
+  opacity: 0; pointer-events: none; transition: opacity .2s ease;
+  z-index: 10;
+}
+.g-overlay.show { opacity: 1; pointer-events: auto; }
+.g-overlay h2 { margin: 0; font-size: 24px; font-weight: 800; }
+.g-overlay p { margin: 0; color: #9295ad; font-size: 14px; max-width: 320px; }
+.g-hint { padding: 8px 16px; font-size: 12px; color: #62647a; text-align: center; flex-shrink: 0; }
+canvas { display: block; touch-action: none; }

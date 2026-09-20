@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Memory Match — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    width: min(92vw, 420px);
+    perspective: 800px;
+  }
+  .card {
+    aspect-ratio: 1; border-radius: 10px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; user-select: none;
+    background: #171826; border: 1px solid rgba(255,255,255,0.08);
+    transform-style: preserve-3d; transition: transform .3s ease, background .2s ease;
+    position: relative;
+  }
+  .card .face { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; backface-visibility: hidden; border-radius: 10px; }
+  .card .back { background: #171826; font-size: 20px; color: #62647a; }
+  .card .front { background: #1e2032; transform: rotateY(180deg); }
+  .card.flipped { transform: rotateY(180deg); }
+  .card.matched { opacity: 0.45; cursor: default; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🧠 Memory Match</div>
+    <div class="g-stats">Moves <b id="moves">0</b> Time <b id="time">0s</b></div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <div id="grid"></div>
+    <div class="g-overlay" id="overlay">
+      <h2>You matched them all! 🎉</h2>
+      <p id="overMsg"></p>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Flip two cards at a time to find matching pairs</div>
+</div>
+<script>
+(function(){
+  const emojis = ['🍎','🍋','🍇','🍉','🍓','🍒','🥝','🍑'];
+  const gridEl = document.getElementById('grid');
+  let cards, flipped, matchedCount, moves, timer, seconds, locked;
+
+  function reset() {
+    clearInterval(timer);
+    seconds = 0; moves = 0; matchedCount = 0; flipped = []; locked = false;
+    document.getElementById('moves').textContent = moves;
+    document.getElementById('time').textContent = '0s';
+    document.getElementById('overlay').classList.remove('show');
+    cards = [...emojis, ...emojis].sort(() => Math.random() - 0.5);
+    gridEl.innerHTML = '';
+    cards.forEach((emo, i) => {
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.dataset.index = i;
+      el.dataset.emoji = emo;
+      el.innerHTML = '<div class="face back">?</div><div class="face front">' + emo + '</div>';
+      el.addEventListener('click', () => flip(el));
+      gridEl.appendChild(el);
+    });
+    timer = setInterval(() => { seconds++; document.getElementById('time').textContent = seconds + 's'; }, 1000);
+  }
+
+  function flip(el) {
+    if (locked || el.classList.contains('flipped') || el.classList.contains('matched')) return;
+    el.classList.add('flipped');
+    flipped.push(el);
+    if (flipped.length === 2) {
+      moves++;
+      document.getElementById('moves').textContent = moves;
+      locked = true;
+      const [a,b] = flipped;
+      if (a.dataset.emoji === b.dataset.emoji) {
+        a.classList.add('matched'); b.classList.add('matched');
+        matchedCount++;
+        flipped = []; locked = false;
+        if (matchedCount === emojis.length) finish();
+      } else {
+        setTimeout(() => {
+          a.classList.remove('flipped'); b.classList.remove('flipped');
+          flipped = []; locked = false;
+        }, 700);
+      }
+    }
+  }
+
+  function finish() {
+    clearInterval(timer);
+    document.getElementById('overMsg').textContent = 'Moves: ' + moves + ' · Time: ' + seconds + 's';
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

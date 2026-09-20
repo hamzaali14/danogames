@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Whack-a-Mole — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; width: min(92vw, 360px); }
+  .hole {
+    aspect-ratio: 1; background: #171826; border-radius: 50%; border: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; position: relative;
+  }
+  .mole {
+    font-size: 40px; transform: translateY(100%); transition: transform .12s ease;
+  }
+  .hole.up .mole { transform: translateY(0); }
+  .hole.hit .mole { transform: translateY(0) scale(1.2); filter: brightness(1.5); }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🔨 Whack-a-Mole</div>
+    <div class="g-stats">Score <b id="score">0</b> Time <b id="time">30s</b></div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <div id="grid"></div>
+    <div class="g-overlay" id="overlay">
+      <h2>Time's Up!</h2>
+      <p id="overMsg"></p>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Tap the moles before they duck back down</div>
+</div>
+<script>
+(function(){
+  const gridEl = document.getElementById('grid');
+  let holes = [], score, timeLeft, running, spawnTimer, countdownTimer, best;
+
+  best = parseInt(localStorage.getItem('dg_whack_best') || '0');
+
+  for (let i=0;i<9;i++) {
+    const h = document.createElement('div');
+    h.className = 'hole';
+    h.innerHTML = '<div class="mole">🐹</div>';
+    h.addEventListener('click', () => whack(i));
+    gridEl.appendChild(h);
+    holes.push(h);
+  }
+
+  function reset() {
+    clearInterval(spawnTimer); clearInterval(countdownTimer);
+    score = 0; timeLeft = 30; running = true;
+    document.getElementById('score').textContent = score;
+    document.getElementById('time').textContent = timeLeft + 's';
+    document.getElementById('overlay').classList.remove('show');
+    holes.forEach(h => h.classList.remove('up','hit'));
+    spawnLoop();
+    countdownTimer = setInterval(() => {
+      timeLeft--;
+      document.getElementById('time').textContent = timeLeft + 's';
+      if (timeLeft <= 0) endGame();
+    }, 1000);
+  }
+
+  function spawnLoop() {
+    if (!running) return;
+    const idx = Math.floor(Math.random() * holes.length);
+    const h = holes[idx];
+    if (!h.classList.contains('up')) {
+      h.classList.add('up');
+      setTimeout(() => h.classList.remove('up'), 550 + Math.random()*300);
+    }
+    spawnTimer = setTimeout(spawnLoop, 450 + Math.random()*350);
+  }
+
+  function whack(i) {
+    if (!running) return;
+    const h = holes[i];
+    if (h.classList.contains('up')) {
+      score++;
+      document.getElementById('score').textContent = score;
+      h.classList.remove('up');
+      h.classList.add('hit');
+      setTimeout(() => h.classList.remove('hit'), 150);
+    }
+  }
+
+  function endGame() {
+    running = false;
+    clearInterval(spawnTimer); clearInterval(countdownTimer);
+    holes.forEach(h => h.classList.remove('up'));
+    if (score > best) { best = score; localStorage.setItem('dg_whack_best', best); }
+    document.getElementById('overMsg').textContent = 'Score: ' + score + ' · Best: ' + best;
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

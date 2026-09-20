@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>15 Puzzle — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #grid {
+    position: relative;
+    width: min(90vw, 360px); height: min(90vw, 360px);
+    background: #171826; border-radius: 12px; padding: 6px;
+  }
+  .tile {
+    position: absolute;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg,#a855f7,#ff4fd8);
+    border-radius: 8px; font-weight: 800; font-size: 22px; color: #fff;
+    cursor: pointer; transition: left .15s ease, top .15s ease;
+  }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🔢 15 Puzzle</div>
+    <div class="g-stats">Moves <b id="moves">0</b></div>
+    <button class="g-btn ghost" id="restart">Shuffle</button>
+  </div>
+  <div class="g-stage">
+    <div id="grid"></div>
+    <div class="g-overlay" id="overlay">
+      <h2>Solved! 🎉</h2>
+      <p id="overMsg"></p>
+      <button class="g-btn" id="again">Shuffle Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Click a tile next to the empty spot to slide it · Arrange 1-15 in order</div>
+</div>
+<script>
+(function(){
+  const SIZE = 4;
+  const gridEl = document.getElementById('grid');
+  let tiles, moves, blankIdx;
+
+  function solvedArr() {
+    const a = [];
+    for (let i=1;i<SIZE*SIZE;i++) a.push(i);
+    a.push(0);
+    return a;
+  }
+
+  function isSolvable(a) {
+    let inv = 0;
+    const arr = a.filter(v => v !== 0);
+    for (let i=0;i<arr.length;i++) for (let j=i+1;j<arr.length;j++) if (arr[i] > arr[j]) inv++;
+    const blankRow = Math.floor(a.indexOf(0) / SIZE);
+    return SIZE % 2 === 0 ? (inv + blankRow) % 2 === 1 : inv % 2 === 0;
+  }
+
+  function shuffle() {
+    let a;
+    do {
+      a = solvedArr();
+      for (let i=a.length-1;i>0;i--) {
+        const j = Math.floor(Math.random()*(i+1));
+        [a[i],a[j]] = [a[j],a[i]];
+      }
+    } while (!isSolvable(a) || isSolved(a));
+    return a;
+  }
+
+  function isSolved(a) {
+    const s = solvedArr();
+    return a.every((v,i) => v === s[i]);
+  }
+
+  function reset() {
+    tiles = shuffle();
+    blankIdx = tiles.indexOf(0);
+    moves = 0;
+    document.getElementById('moves').textContent = moves;
+    document.getElementById('overlay').classList.remove('show');
+    render();
+  }
+
+  function render() {
+    gridEl.innerHTML = '';
+    const rect = gridEl.getBoundingClientRect();
+    const pad = 6, gap = 6;
+    const cell = (rect.width - pad*2 - gap*3) / 4;
+    tiles.forEach((v, i) => {
+      if (v === 0) return;
+      const r = Math.floor(i/SIZE), c = i % SIZE;
+      const t = document.createElement('div');
+      t.className = 'tile';
+      t.textContent = v;
+      t.style.width = cell + 'px';
+      t.style.height = cell + 'px';
+      t.style.left = (pad + c*(cell+gap)) + 'px';
+      t.style.top = (pad + r*(cell+gap)) + 'px';
+      t.addEventListener('click', () => tryMove(i));
+      gridEl.appendChild(t);
+    });
+  }
+
+  function tryMove(i) {
+    const r1 = Math.floor(i/SIZE), c1 = i%SIZE;
+    const r2 = Math.floor(blankIdx/SIZE), c2 = blankIdx%SIZE;
+    if (Math.abs(r1-r2) + Math.abs(c1-c2) !== 1) return;
+    [tiles[i], tiles[blankIdx]] = [tiles[blankIdx], tiles[i]];
+    blankIdx = i;
+    moves++;
+    document.getElementById('moves').textContent = moves;
+    render();
+    if (isSolved(tiles)) {
+      document.getElementById('overMsg').textContent = 'Solved in ' + moves + ' moves!';
+      document.getElementById('overlay').classList.add('show');
+    }
+  }
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  window.addEventListener('resize', render);
+  reset();
+})();
+</script>
+</body>
+</html>

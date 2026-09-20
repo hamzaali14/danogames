@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Tic-Tac-Toe — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #board { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; width: min(80vw, 320px); }
+  .cell {
+    aspect-ratio: 1; background: #171826; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 48px; font-weight: 800; cursor: pointer;
+  }
+  .cell.x { color: #a855f7; }
+  .cell.o { color: #ff4fd8; }
+  .cell.win { background: rgba(168,85,247,0.25); }
+  #modeBar { display: flex; gap: 8px; }
+  #modeBar button.active { background: linear-gradient(135deg,#a855f7,#ff4fd8); color:#fff; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">⭕ Tic-Tac-Toe</div>
+    <div class="g-stats">You <b id="wins">0</b> Draws <b id="draws">0</b> AI <b id="losses">0</b></div>
+    <button class="g-btn ghost" id="restart">New Round</button>
+  </div>
+  <div class="g-stage">
+    <div id="board"></div>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">Draw!</h2>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">You're X. The AI plays optimally — a draw is a win against it!</div>
+</div>
+<script>
+(function(){
+  const boardEl = document.getElementById('board');
+  let board, gameOver;
+  let wins=0, draws=0, losses=0;
+
+  function reset() {
+    board = Array(9).fill(null);
+    gameOver = false;
+    document.getElementById('overlay').classList.remove('show');
+    render();
+  }
+
+  function render() {
+    boardEl.innerHTML = '';
+    board.forEach((v, i) => {
+      const c = document.createElement('div');
+      c.className = 'cell' + (v === 'X' ? ' x' : v === 'O' ? ' o' : '');
+      c.textContent = v || '';
+      c.addEventListener('click', () => playerMove(i));
+      boardEl.appendChild(c);
+    });
+  }
+
+  function playerMove(i) {
+    if (gameOver || board[i]) return;
+    board[i] = 'X';
+    render();
+    if (checkEnd()) return;
+    setTimeout(aiMove, 350);
+  }
+
+  function aiMove() {
+    if (gameOver) return;
+    const best = bestMove(board);
+    if (best !== -1) board[best] = 'O';
+    render();
+    checkEnd();
+  }
+
+  const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  function winner(b) {
+    for (const [a,c,d] of LINES) if (b[a] && b[a]===b[c] && b[a]===b[d]) return {p:b[a], line:[a,c,d]};
+    return null;
+  }
+
+  function checkEnd() {
+    const w = winner(board);
+    if (w) {
+      gameOver = true;
+      w.line.forEach(i => boardEl.children[i].classList.add('win'));
+      if (w.p === 'X') { wins++; showEnd('You Win! 🎉'); } else { losses++; showEnd('AI Wins'); }
+      updateStats();
+      return true;
+    }
+    if (board.every(v => v)) {
+      gameOver = true;
+      draws++;
+      updateStats();
+      showEnd("It's a Draw");
+      return true;
+    }
+    return false;
+  }
+
+  function updateStats() {
+    document.getElementById('wins').textContent = wins;
+    document.getElementById('draws').textContent = draws;
+    document.getElementById('losses').textContent = losses;
+  }
+
+  function showEnd(msg) {
+    document.getElementById('overTitle').textContent = msg;
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function bestMove(b) {
+    let bestScore = -Infinity, move = -1;
+    for (let i=0;i<9;i++) {
+      if (!b[i]) {
+        b[i] = 'O';
+        const score = minimax(b, 0, false);
+        b[i] = null;
+        if (score > bestScore) { bestScore = score; move = i; }
+      }
+    }
+    return move;
+  }
+
+  function minimax(b, depth, isMax) {
+    const w = winner(b);
+    if (w) return w.p === 'O' ? 10 - depth : depth - 10;
+    if (b.every(v => v)) return 0;
+    if (isMax) {
+      let best = -Infinity;
+      for (let i=0;i<9;i++) if (!b[i]) { b[i]='O'; best = Math.max(best, minimax(b, depth+1, false)); b[i]=null; }
+      return best;
+    } else {
+      let best = Infinity;
+      for (let i=0;i<9;i++) if (!b[i]) { b[i]='X'; best = Math.min(best, minimax(b, depth+1, true)); b[i]=null; }
+      return best;
+    }
+  }
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

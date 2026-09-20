@@ -1,7 +1,7 @@
 {
-  "name": "DanoGames — Free Online Games",
+  "name": "DanoGames — Free, Ad-Free Games",
   "short_name": "DanoGames",
-  "description": "Thousands of free online games. No downloads, no signup, play instantly.",
+  "description": "Original, ad-free games. No downloads, no signup, no ads — play instantly, even offline.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

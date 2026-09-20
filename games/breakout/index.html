@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Breakout — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  .g-stage { background: #0e0f1a; }
+  #board { background: #12131f; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🧱 Breakout</div>
+    <div class="g-stats">Score <b id="score">0</b> Lives <b id="lives">3</b></div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <canvas id="board" width="420" height="420"></canvas>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">Game Over</h2>
+      <p id="overMsg"></p>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Move mouse / drag to control the paddle · Break every brick to win</div>
+</div>
+<script>
+(function(){
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const PADDLE_W = 90, PADDLE_H = 12;
+  let paddleX, ball, bricks, score, lives, running, raf;
+
+  const ROWS = 5, COLS = 8, BRICK_W = (W - 20) / COLS, BRICK_H = 18, BRICK_TOP = 40;
+  const rowColors = ['#ff4fd8','#c25cf0','#a855f7','#7c5cff','#5c7cff'];
+
+  function reset() {
+    paddleX = W/2 - PADDLE_W/2;
+    ball = { x: W/2, y: H-60, dx: 3, dy: -3.5, r: 7 };
+    bricks = [];
+    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) bricks.push({ r, c, alive: true });
+    score = 0; lives = 3; running = true;
+    document.getElementById('score').textContent = score;
+    document.getElementById('lives').textContent = lives;
+    document.getElementById('overlay').classList.remove('show');
+    cancelAnimationFrame(raf);
+    loop();
+  }
+
+  function loop() {
+    if (!running) return;
+    update();
+    draw();
+    raf = requestAnimationFrame(loop);
+  }
+
+  function update() {
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+    if (ball.x < ball.r || ball.x > W - ball.r) ball.dx *= -1;
+    if (ball.y < ball.r) ball.dy *= -1;
+
+    if (ball.y + ball.r >= H - 20 && ball.y + ball.r <= H - 20 + 12 && ball.x >= paddleX && ball.x <= paddleX + PADDLE_W && ball.dy > 0) {
+      const hitPos = (ball.x - paddleX) / PADDLE_W;
+      ball.dy = -Math.abs(ball.dy);
+      ball.dx = 6 * (hitPos - 0.5);
+    }
+
+    if (ball.y > H) {
+      lives--;
+      document.getElementById('lives').textContent = lives;
+      if (lives <= 0) return endGame(false);
+      ball = { x: W/2, y: H-60, dx: 3, dy: -3.5, r: 7 };
+    }
+
+    bricks.forEach(b => {
+      if (!b.alive) return;
+      const bx = 10 + b.c * BRICK_W, by = BRICK_TOP + b.r * (BRICK_H+6);
+      if (ball.x + ball.r > bx && ball.x - ball.r < bx + BRICK_W - 4 && ball.y + ball.r > by && ball.y - ball.r < by + BRICK_H) {
+        b.alive = false;
+        ball.dy *= -1;
+        score += 10;
+        document.getElementById('score').textContent = score;
+      }
+    });
+
+    if (bricks.every(b => !b.alive)) endGame(true);
+  }
+
+  function draw() {
+    ctx.fillStyle = '#12131f';
+    ctx.fillRect(0,0,W,H);
+    bricks.forEach(b => {
+      if (!b.alive) return;
+      ctx.fillStyle = rowColors[b.r % rowColors.length];
+      ctx.fillRect(10 + b.c*BRICK_W, BRICK_TOP + b.r*(BRICK_H+6), BRICK_W-4, BRICK_H);
+    });
+    ctx.fillStyle = '#f2f3f8';
+    ctx.fillRect(paddleX, H-20, PADDLE_W, PADDLE_H);
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+    ctx.fillStyle = '#ff4fd8';
+    ctx.fill();
+  }
+
+  function endGame(won) {
+    running = false;
+    cancelAnimationFrame(raf);
+    document.getElementById('overTitle').textContent = won ? 'You Win! 🎉' : 'Game Over';
+    document.getElementById('overMsg').textContent = 'Score: ' + score;
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function movePaddle(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    const scale = W / rect.width;
+    paddleX = (clientX - rect.left) * scale - PADDLE_W/2;
+    paddleX = Math.max(0, Math.min(W - PADDLE_W, paddleX));
+  }
+  canvas.addEventListener('mousemove', (e) => movePaddle(e.clientX));
+  canvas.addEventListener('touchmove', (e) => { movePaddle(e.touches[0].clientX); e.preventDefault(); }, {passive:false});
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

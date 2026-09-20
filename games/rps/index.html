@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Rock Paper Scissors — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #panel { text-align: center; }
+  #vs { display: flex; align-items: center; justify-content: center; gap: 30px; font-size: 60px; margin-bottom: 20px; min-height: 90px; }
+  #result { font-size: 20px; font-weight: 800; min-height: 28px; margin-bottom: 20px; }
+  #choices { display: flex; gap: 14px; justify-content: center; }
+  .choice-btn {
+    width: 70px; height: 70px; border-radius: 50%; font-size: 32px;
+    background: #171826; border: 1px solid rgba(255,255,255,0.1); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .choice-btn:hover { transform: translateY(-3px); border-color: #a855f7; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">✊ Rock Paper Scissors</div>
+    <div class="g-stats">You <b id="wins">0</b> Ties <b id="ties">0</b> CPU <b id="losses">0</b></div>
+    <button class="g-btn ghost" id="restart">Reset Score</button>
+  </div>
+  <div class="g-stage">
+    <div id="panel">
+      <div id="vs"><span id="youIcon">❓</span><span style="font-size:20px;color:#62647a;">vs</span><span id="cpuIcon">❓</span></div>
+      <div id="result"></div>
+      <div id="choices">
+        <div class="choice-btn" data-c="rock">✊</div>
+        <div class="choice-btn" data-c="paper">✋</div>
+        <div class="choice-btn" data-c="scissors">✌️</div>
+      </div>
+    </div>
+  </div>
+  <div class="g-hint">Pick rock, paper, or scissors — best of endless rounds</div>
+</div>
+<script>
+(function(){
+  const icons = { rock:'✊', paper:'✋', scissors:'✌️' };
+  const beats = { rock:'scissors', paper:'rock', scissors:'paper' };
+  let wins=0, ties=0, losses=0;
+
+  function play(choice) {
+    const options = Object.keys(icons);
+    const cpu = options[Math.floor(Math.random()*3)];
+    document.getElementById('youIcon').textContent = icons[choice];
+    document.getElementById('cpuIcon').textContent = icons[cpu];
+    const resultEl = document.getElementById('result');
+    if (choice === cpu) {
+      ties++; resultEl.textContent = "It's a tie!"; resultEl.style.color = '#9295ad';
+    } else if (beats[choice] === cpu) {
+      wins++; resultEl.textContent = 'You win! 🎉'; resultEl.style.color = '#34d399';
+    } else {
+      losses++; resultEl.textContent = 'CPU wins'; resultEl.style.color = '#ff5c7c';
+    }
+    document.getElementById('wins').textContent = wins;
+    document.getElementById('ties').textContent = ties;
+    document.getElementById('losses').textContent = losses;
+  }
+
+  function resetScore() {
+    wins = 0; ties = 0; losses = 0;
+    document.getElementById('wins').textContent = wins;
+    document.getElementById('ties').textContent = ties;
+    document.getElementById('losses').textContent = losses;
+    document.getElementById('youIcon').textContent = '❓';
+    document.getElementById('cpuIcon').textContent = '❓';
+    document.getElementById('result').textContent = '';
+  }
+
+  document.querySelectorAll('.choice-btn').forEach(b => b.addEventListener('click', () => play(b.dataset.c)));
+  document.getElementById('restart').addEventListener('click', resetScore);
+})();
+</script>
+</body>
+</html>

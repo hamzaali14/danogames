@@ -70,10 +70,7 @@
   /* ---------------- Categories ---------------- */
   function buildCategoryUI() {
     const icons = {
-      Puzzle: "🧩", Hypercasual: "⚡", Arcade: "🕹️", Adventure: "🗺️",
-      Racing: "🏎️", Shooting: "🎯", Sports: "⚽", Clicker: "👆",
-      Action: "💥", Girls: "💖", Stickman: "🤺", Multiplayer: "👥",
-      Boys: "🎮", Cooking: "🍳", Soccer: "⚽", "3D": "🧊", ".IO": "🌐", AI: "🤖", "2 Player": "👬"
+      Puzzle: "🧩", Arcade: "🕹️", Strategy: "♟️", Skill: "🎯"
     };
     const navFrag = document.createDocumentFragment();
     const allNavBtn = navBtn("All", GAMES.length, true);

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Math Sprint — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #panel { text-align: center; width: min(90vw, 360px); }
+  #question { font-size: 48px; font-weight: 800; margin-bottom: 24px; letter-spacing: -0.02em; }
+  #answer {
+    width: 100%; font-size: 24px; text-align: center; padding: 14px;
+    border-radius: 12px; border: 1px solid rgba(255,255,255,0.12);
+    background: #171826; color: #f2f3f8; font-family: inherit; outline: none;
+  }
+  #answer:focus { border-color: #a855f7; }
+  #feedback { height: 20px; margin-top: 10px; font-weight: 700; font-size: 14px; }
+  #feedback.correct { color: #34d399; }
+  #feedback.wrong { color: #ff5c7c; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">➗ Math Sprint</div>
+    <div class="g-stats">Score <b id="score">0</b> Time <b id="time">60s</b></div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <div id="panel">
+      <div id="question">–</div>
+      <input id="answer" type="number" inputmode="numeric" placeholder="Your answer" autocomplete="off">
+      <div id="feedback"></div>
+    </div>
+    <div class="g-overlay show" id="overlay">
+      <h2 id="overTitle">Math Sprint</h2>
+      <p id="overMsg">Answer as many as you can in 60 seconds.</p>
+      <button class="g-btn" id="again">Start</button>
+    </div>
+  </div>
+  <div class="g-hint">Type the answer and press Enter</div>
+</div>
+<script>
+(function(){
+  let score, timeLeft, current, running, countdownTimer, best;
+  const answerEl = document.getElementById('answer');
+
+  best = parseInt(localStorage.getItem('dg_mathsprint_best') || '0');
+
+  function genQuestion() {
+    const ops = ['+','-','×'];
+    const op = ops[Math.floor(Math.random()*ops.length)];
+    let a, b;
+    if (op === '+') { a = rand(10,90); b = rand(10,90); }
+    else if (op === '-') { a = rand(20,99); b = rand(1,a); }
+    else { a = rand(2,12); b = rand(2,12); }
+    const answer = op === '+' ? a+b : op === '-' ? a-b : a*b;
+    current = { text: a + ' ' + op + ' ' + b, answer };
+    document.getElementById('question').textContent = current.text;
+  }
+  function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+  function reset() {
+    clearInterval(countdownTimer);
+    score = 0; timeLeft = 60; running = true;
+    document.getElementById('score').textContent = score;
+    document.getElementById('time').textContent = timeLeft + 's';
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('feedback').textContent = '';
+    genQuestion();
+    answerEl.value = '';
+    answerEl.focus();
+    countdownTimer = setInterval(() => {
+      timeLeft--;
+      document.getElementById('time').textContent = timeLeft + 's';
+      if (timeLeft <= 0) endGame();
+    }, 1000);
+  }
+
+  function submit() {
+    if (!running) return;
+    const val = parseInt(answerEl.value, 10);
+    const fb = document.getElementById('feedback');
+    if (val === current.answer) {
+      score++;
+      document.getElementById('score').textContent = score;
+      fb.textContent = 'Correct!'; fb.className = 'correct';
+    } else {
+      fb.textContent = 'Answer was ' + current.answer; fb.className = 'wrong';
+    }
+    answerEl.value = '';
+    genQuestion();
+    setTimeout(() => { fb.textContent = ''; }, 500);
+  }
+
+  function endGame() {
+    running = false;
+    clearInterval(countdownTimer);
+    if (score > best) { best = score; localStorage.setItem('dg_mathsprint_best', best); }
+    document.getElementById('overTitle').textContent = "Time's Up!";
+    document.getElementById('overMsg').textContent = 'Score: ' + score + ' · Best: ' + best;
+    document.getElementById('again').textContent = 'Try Again';
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  answerEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+})();
+</script>
+</body>
+</html>
