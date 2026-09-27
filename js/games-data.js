@@ -306,14 +306,59 @@ window.GAMES_DATA = [
     thumb: "games/typingtest/thumb.svg",
     url: "games/typingtest/index.html",
     w: 500, h: 320
+  },
+  {
+    id: "candyduel",
+    title: "Candy Duel",
+    slug: "candyduel",
+    category: "Multiplayer",
+    tags: ["Multiplayer", "Two Player", "AI", "Colors", "Match-3"],
+    desc: "A head-to-head candy match game — take turns matching candies for points. Play vs the computer or pass the device to a friend.",
+    thumb: "games/candyduel/thumb.svg",
+    url: "games/candyduel/index.html",
+    w: 380, h: 460
+  },
+  {
+    id: "airhockey",
+    title: "Air Hockey",
+    slug: "airhockey",
+    category: "Multiplayer",
+    tags: ["Multiplayer", "Two Player", "AI", "Arcade", "Sports"],
+    desc: "Fast-paced air hockey — drag your mallet to block and strike. Play vs the computer or share the screen with a friend. First to 7 wins.",
+    thumb: "games/airhockey/thumb.svg",
+    url: "games/airhockey/index.html",
+    w: 300, h: 480
+  },
+  {
+    id: "mazerunner",
+    title: "Maze Runner",
+    slug: "mazerunner",
+    category: "Puzzle",
+    tags: ["Puzzle", "Maze", "Timed", "Skill"],
+    desc: "A brand-new maze every time — navigate from the top-left to the exit as fast as you can and chase your best time.",
+    thumb: "games/mazerunner/thumb.svg",
+    url: "games/mazerunner/index.html",
+    w: 320, h: 320
+  },
+  {
+    id: "towerstack",
+    title: "Tower Stack",
+    slug: "towerstack",
+    category: "Arcade",
+    tags: ["Arcade", "Timing", "Skill", "Endless"],
+    desc: "Drop each swinging block to line it up with the tower below. Miss too much and it's over — how high can you build?",
+    thumb: "games/towerstack/thumb.svg",
+    url: "games/towerstack/index.html",
+    w: 320, h: 480
   }
 ];
 
 window.CATEGORIES = [
-  { name: "Arcade", count: 7 },
-  { name: "Puzzle", count: 8 },
+  { name: "Arcade", count: 8 },
+  { name: "Puzzle", count: 9 },
   { name: "Strategy", count: 4 },
   { name: "Skill", count: 6 },
   { name: "Word", count: 2 },
-  { name: "Cards", count: 1 }
+  { name: "Cards", count: 1 },
+  { name: "Multiplayer", count: 2 }
 ];

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Maze Runner — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  .g-stage { background: #0e0f1a; }
+  #board { background: #0a0b14; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🧭 Maze Runner</div>
+    <div class="g-stats">Time <b id="time">0.0</b>s Best <b id="best">–</b>s</div>
+    <button class="g-btn ghost" id="restart">New Maze</button>
+  </div>
+  <div class="g-stage">
+    <canvas id="board" width="320" height="320"></canvas>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">Maze Cleared! 🎉</h2>
+      <p id="overMsg"></p>
+      <button class="g-btn" id="again">New Maze</button>
+    </div>
+  </div>
+  <div class="g-hint">Arrow keys / WASD to navigate from top-left to the exit</div>
+</div>
+<script>
+(function(){
+  const N = 16, CELL = 20;
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  let walls, player, startTime, elapsed, running, timerId;
+  let best = parseFloat(localStorage.getItem('dg_mazerunner_best') || '0') || null;
+  if (best) document.getElementById('best').textContent = best.toFixed(1);
+
+  function generateMaze() {
+    const w = Array.from({length: N}, () => Array.from({length: N}, () => ({ top:true, right:true, bottom:true, left:true })));
+    const visited = Array.from({length: N}, () => Array(N).fill(false));
+    const stack = [[0,0]];
+    visited[0][0] = true;
+    while (stack.length) {
+      const [r, c] = stack[stack.length-1];
+      const neighbors = [];
+      if (r > 0 && !visited[r-1][c]) neighbors.push([r-1, c, 'top']);
+      if (r < N-1 && !visited[r+1][c]) neighbors.push([r+1, c, 'bottom']);
+      if (c > 0 && !visited[r][c-1]) neighbors.push([r, c-1, 'left']);
+      if (c < N-1 && !visited[r][c+1]) neighbors.push([r, c+1, 'right']);
+      if (neighbors.length === 0) { stack.pop(); continue; }
+      const [nr, nc, dir] = neighbors[Math.floor(Math.random() * neighbors.length)];
+      const opp = { top:'bottom', bottom:'top', left:'right', right:'left' };
+      w[r][c][dir] = false;
+      w[nr][nc][opp[dir]] = false;
+      visited[nr][nc] = true;
+      stack.push([nr, nc]);
+    }
+    return w;
+  }
+
+  function reset() {
+    walls = generateMaze();
+    player = { r: 0, c: 0 };
+    elapsed = 0; running = true; startTime = null;
+    document.getElementById('time').textContent = '0.0';
+    document.getElementById('overlay').classList.remove('show');
+    clearInterval(timerId);
+    timerId = setInterval(tick, 100);
+    draw();
+  }
+
+  function tick() {
+    if (!running) return;
+    if (startTime) {
+      elapsed = (performance.now() - startTime) / 1000;
+      document.getElementById('time').textContent = elapsed.toFixed(1);
+    }
+  }
+
+  function move(dr, dc, dir) {
+    if (!running) return;
+    if (!startTime) startTime = performance.now();
+    const { r, c } = player;
+    if (walls[r][c][dir]) return;
+    player.r = r + dr;
+    player.c = c + dc;
+    draw();
+    if (player.r === N-1 && player.c === N-1) finish();
+  }
+
+  function finish() {
+    running = false;
+    clearInterval(timerId);
+    if (!best || elapsed < best) { best = elapsed; localStorage.setItem('dg_mazerunner_best', best); document.getElementById('best').textContent = best.toFixed(1); }
+    document.getElementById('overMsg').textContent = 'Time: ' + elapsed.toFixed(1) + 's' + (elapsed <= (best||elapsed) ? ' — New best!' : '');
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function draw() {
+    ctx.fillStyle = '#0a0b14';
+    ctx.fillRect(0, 0, N*CELL, N*CELL);
+
+    ctx.fillStyle = 'rgba(52,211,153,0.25)';
+    ctx.fillRect((N-1)*CELL+2, (N-1)*CELL+2, CELL-4, CELL-4);
+
+    ctx.strokeStyle = '#62647a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const x = c*CELL, y = r*CELL;
+        const wcell = walls[r][c];
+        if (wcell.top) { ctx.moveTo(x, y); ctx.lineTo(x+CELL, y); }
+        if (wcell.left) { ctx.moveTo(x, y); ctx.lineTo(x, y+CELL); }
+        if (r === N-1 && wcell.bottom) { ctx.moveTo(x, y+CELL); ctx.lineTo(x+CELL, y+CELL); }
+        if (c === N-1 && wcell.right) { ctx.moveTo(x+CELL, y); ctx.lineTo(x+CELL, y+CELL); }
+      }
+    }
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.fillStyle = '#a855f7';
+    ctx.arc(player.c*CELL + CELL/2, player.r*CELL + CELL/2, CELL*0.3, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { move(-1, 0, 'top'); e.preventDefault(); }
+    else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { move(1, 0, 'bottom'); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { move(0, -1, 'left'); e.preventDefault(); }
+    else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { move(0, 1, 'right'); e.preventDefault(); }
+  });
+
+  let touchStart = null;
+  canvas.addEventListener('touchstart', (e) => { touchStart = e.touches[0]; }, {passive:true});
+  canvas.addEventListener('touchend', (e) => {
+    if (!touchStart) return;
+    const dx = e.changedTouches[0].clientX - touchStart.clientX;
+    const dy = e.changedTouches[0].clientY - touchStart.clientY;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 12) return;
+    if (Math.abs(dx) > Math.abs(dy)) { dx > 0 ? move(0,1,'right') : move(0,-1,'left'); }
+    else { dy > 0 ? move(1,0,'bottom') : move(-1,0,'top'); }
+    touchStart = null;
+  }, {passive:true});
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

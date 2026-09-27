@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Tower Stack — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  .g-stage { background: linear-gradient(180deg, #1a1c2e, #0e0f1a); }
+  #board { background: transparent; border-radius: 12px; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🏗️ Tower Stack</div>
+    <div class="g-stats">Height <b id="score">0</b> Best <b id="best">0</b></div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <canvas id="board" width="320" height="480"></canvas>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">Game Over</h2>
+      <p id="overMsg">Height: 0</p>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Tap, click, or press Space to drop the block — line it up with the stack below</div>
+</div>
+<script>
+(function(){
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const BH = 26, BASE_Y = H - 40, TARGET_TOP_Y = 340;
+  const HUES = ['#a855f7','#ff4fd8','#22d3ee','#34d399','#f5a524','#ff5c7c'];
+  let stack, moving, debris, score, best, running, scrollOffset;
+
+  best = parseInt(localStorage.getItem('dg_towerstack_best') || '0');
+  document.getElementById('best').textContent = best;
+
+  function reset() {
+    stack = [{ x: W/2 - 80, width: 160, y: BASE_Y, hue: 0 }];
+    debris = [];
+    score = 0; running = true;
+    document.getElementById('score').textContent = score;
+    document.getElementById('overlay').classList.remove('show');
+    spawnMoving();
+    requestAnimationFrame(loop);
+  }
+
+  function spawnMoving() {
+    const top = stack[stack.length - 1];
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    moving = {
+      x: dir === 1 ? 10 : W - 10 - top.width,
+      width: top.width,
+      y: top.y - BH,
+      dir,
+      speed: Math.min(2 + score * 0.09, 6),
+      hue: (top.hue + 1) % HUES.length
+    };
+  }
+
+  function loop() {
+    if (!running) return;
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function update() {
+    moving.x += moving.dir * moving.speed;
+    if (moving.x <= 8) { moving.x = 8; moving.dir = 1; }
+    if (moving.x + moving.width >= W - 8) { moving.x = W - 8 - moving.width; moving.dir = -1; }
+
+    debris.forEach(d => { d.vy += 0.6; d.y += d.vy; d.alpha -= 0.02; });
+    debris = debris.filter(d => d.alpha > 0 && d.y < H + 100);
+
+    const topWorldY = stack[stack.length-1].y - BH;
+    scrollOffset = Math.max(0, TARGET_TOP_Y - topWorldY);
+  }
+
+  function drop() {
+    if (!running) return;
+    const top = stack[stack.length - 1];
+    const left = Math.max(moving.x, top.x);
+    const right = Math.min(moving.x + moving.width, top.x + top.width);
+    const overlap = right - left;
+
+    if (overlap <= 2) {
+      running = false;
+      debris.push({ x: moving.x, y: moving.y, width: moving.width, height: BH, vy: -4, alpha: 1, hue: moving.hue, vx: moving.dir * 3 });
+      setTimeout(endGame, 500);
+      return;
+    }
+
+    if (moving.x < left) debris.push({ x: moving.x, y: moving.y, width: left - moving.x, height: BH, vy: -2, alpha: 1, hue: moving.hue, vx: -3 });
+    if (moving.x + moving.width > right) debris.push({ x: right, y: moving.y, width: (moving.x+moving.width) - right, height: BH, vy: -2, alpha: 1, hue: moving.hue, vx: 3 });
+
+    stack.push({ x: left, width: overlap, y: moving.y, hue: moving.hue });
+    score++;
+    document.getElementById('score').textContent = score;
+    spawnMoving();
+  }
+
+  function endGame() {
+    if (score > best) { best = score; localStorage.setItem('dg_towerstack_best', best); document.getElementById('best').textContent = best; }
+    document.getElementById('overMsg').textContent = 'Height: ' + score + (score >= best && score > 0 ? ' — New best!' : '');
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    stack.forEach(b => drawBlock(b.x, b.y + scrollOffset, b.width, b.hue, 1));
+    debris.forEach(d => drawBlock(d.x + (d.vx||0)*((1-d.alpha)*10), d.y + scrollOffset, d.width, d.hue, d.alpha));
+    if (running) drawBlock(moving.x, moving.y + scrollOffset, moving.width, moving.hue, 1);
+  }
+
+  function drawBlock(x, y, w, hueIdx, alpha) {
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = HUES[hueIdx % HUES.length];
+    ctx.fillRect(x, y, w, BH - 2);
+    ctx.globalAlpha = 1;
+  }
+
+  function handleAction(e) {
+    if (e) e.preventDefault();
+    drop();
+  }
+  canvas.addEventListener('click', handleAction);
+  canvas.addEventListener('touchstart', handleAction, {passive:false});
+  document.addEventListener('keydown', (e) => { if (e.key === ' ') handleAction(e); });
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

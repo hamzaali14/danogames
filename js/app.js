@@ -70,7 +70,7 @@
   /* ---------------- Categories ---------------- */
   function buildCategoryUI() {
     const icons = {
-      Puzzle: "🧩", Arcade: "🕹️", Strategy: "♟️", Skill: "🎯", Word: "📝", Cards: "🃏"
+      Puzzle: "🧩", Arcade: "🕹️", Strategy: "♟️", Skill: "🎯", Word: "📝", Cards: "🃏", Multiplayer: "👥"
     };
     const navFrag = document.createDocumentFragment();
     const allNavBtn = navBtn("All", GAMES.length, true);

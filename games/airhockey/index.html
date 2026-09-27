@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Air Hockey — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  .g-stage { background: #0e0f1a; }
+  #board { background: #0d3b3a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); touch-action: none; }
+  #modeChoice { display: flex; flex-direction: column; gap: 12px; width: 100%; align-items: center; }
+  #modeChoice button { width: 100%; max-width: 280px; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🏒 Air Hockey</div>
+    <div class="g-stats"><span id="p2Label">Top</span> <b id="p2Score">0</b> — <span id="p1Label">You</span> <b id="p1Score">0</b></div>
+    <button class="g-btn ghost" id="restart">New Match</button>
+  </div>
+  <div class="g-stage">
+    <canvas id="board" width="300" height="480"></canvas>
+    <div class="g-overlay show" id="overlay">
+      <h2 id="overTitle">Air Hockey</h2>
+      <p id="overMsg">First to 7 goals wins.</p>
+      <div id="modeChoice">
+        <button class="g-btn" id="vsComputer">Play vs Computer</button>
+        <button class="g-btn ghost" id="vsFriend">Play vs Friend (same device)</button>
+      </div>
+    </div>
+  </div>
+  <div class="g-hint">Bottom: drag / touch your mallet · Top (2P): Arrow keys</div>
+</div>
+<script>
+(function(){
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const MID_Y = H / 2;
+  const MALLET_R = 22, PUCK_R = 11;
+  const GOAL_HALF = 45;
+  let mode, running, busy;
+  let p1, p2, puck, score1, score2, keys = {};
+
+  function reset() {
+    document.getElementById('overTitle').textContent = 'Air Hockey';
+    document.getElementById('overMsg').textContent = 'First to 7 goals wins.';
+    document.getElementById('modeChoice').style.display = 'flex';
+    document.getElementById('overlay').classList.add('show');
+    running = false;
+  }
+
+  function startMatch(selectedMode) {
+    mode = selectedMode;
+    document.getElementById('p2Label').textContent = mode === 'ai' ? 'Computer' : 'Player 2';
+    p1 = { x: W/2, y: H - 60, vx: 0, vy: 0, px: W/2, py: H - 60 };
+    p2 = { x: W/2, y: 60, vx: 0, vy: 0, px: W/2, py: 60 };
+    puck = { x: W/2, y: H/2, vx: (Math.random()<0.5?-1:1)*2.5, vy: (Math.random()<0.5?-1:1)*2.5 };
+    score1 = 0; score2 = 0;
+    document.getElementById('p1Score').textContent = 0;
+    document.getElementById('p2Score').textContent = 0;
+    document.getElementById('overlay').classList.remove('show');
+    running = true; busy = false;
+    requestAnimationFrame(loop);
+  }
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  function loop() {
+    if (!running) return;
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function update() {
+    if (busy) return;
+
+    // Player 1 (bottom) follows pointer target set by input handlers (p1.tx/ty), with clamped bounds
+    if (p1.tx !== undefined) {
+      p1.x = clamp(p1.tx, MALLET_R, W - MALLET_R);
+      p1.y = clamp(p1.ty, MID_Y + MALLET_R, H - MALLET_R);
+    }
+    p1.vx = p1.x - p1.px; p1.vy = p1.y - p1.py;
+    p1.px = p1.x; p1.py = p1.y;
+
+    if (mode === 'pvp') {
+      const speed = 5;
+      if (keys.p2left) p2.x -= speed;
+      if (keys.p2right) p2.x += speed;
+      if (keys.p2up) p2.y -= speed;
+      if (keys.p2down) p2.y += speed;
+      p2.x = clamp(p2.x, MALLET_R, W - MALLET_R);
+      p2.y = clamp(p2.y, MALLET_R, MID_Y - MALLET_R);
+    } else {
+      let targetX = puck.x, targetY = Math.min(puck.y - 40, MID_Y - MALLET_R - 10);
+      if (puck.vy > 0 && puck.y > MID_Y) { targetX = W/2; targetY = 70; }
+      targetY = clamp(targetY, MALLET_R, MID_Y - MALLET_R);
+      targetX = clamp(targetX, MALLET_R, W - MALLET_R);
+      p2.x += (targetX - p2.x) * 0.08;
+      p2.y += (targetY - p2.y) * 0.08;
+    }
+    p2.vx = p2.x - p2.px; p2.vy = p2.y - p2.py;
+    p2.px = p2.x; p2.py = p2.y;
+
+    puck.x += puck.vx; puck.y += puck.vy;
+    puck.vx *= 0.995; puck.vy *= 0.995;
+
+    if (puck.x - PUCK_R < 0) { puck.x = PUCK_R; puck.vx *= -1; }
+    if (puck.x + PUCK_R > W) { puck.x = W - PUCK_R; puck.vx *= -1; }
+
+    if (puck.y - PUCK_R < 0) {
+      if (Math.abs(puck.x - W/2) < GOAL_HALF) { return goal(1); }
+      puck.y = PUCK_R; puck.vy *= -1;
+    }
+    if (puck.y + PUCK_R > H) {
+      if (Math.abs(puck.x - W/2) < GOAL_HALF) { return goal(2); }
+      puck.y = H - PUCK_R; puck.vy *= -1;
+    }
+
+    [p1, p2].forEach(m => {
+      const dx = puck.x - m.x, dy = puck.y - m.y;
+      const dist = Math.hypot(dx, dy);
+      const minDist = PUCK_R + MALLET_R;
+      if (dist < minDist && dist > 0) {
+        const nx = dx / dist, ny = dy / dist;
+        puck.x = m.x + nx * minDist;
+        puck.y = m.y + ny * minDist;
+        const speed = Math.hypot(puck.vx, puck.vy);
+        puck.vx = nx * Math.max(speed, 3) + m.vx * 0.6;
+        puck.vy = ny * Math.max(speed, 3) + m.vy * 0.6;
+        const cap = 14;
+        const newSpeed = Math.hypot(puck.vx, puck.vy);
+        if (newSpeed > cap) { puck.vx = puck.vx/newSpeed*cap; puck.vy = puck.vy/newSpeed*cap; }
+      }
+    });
+  }
+
+  function goal(scorer) {
+    busy = true;
+    if (scorer === 1) { score1++; document.getElementById('p1Score').textContent = score1; }
+    else { score2++; document.getElementById('p2Score').textContent = score2; }
+    if (score1 >= 7 || score2 >= 7) { draw(); return endMatch(); }
+    setTimeout(() => {
+      puck.x = W/2; puck.y = H/2;
+      puck.vx = (Math.random()<0.5?-1:1)*2.5; puck.vy = (scorer===1?-1:1)*2.5;
+      busy = false;
+    }, 700);
+  }
+
+  function endMatch() {
+    running = false;
+    let title;
+    if (mode === 'ai') title = score1 > score2 ? 'You Win! 🎉' : 'Computer Wins';
+    else title = (score1 > score2 ? (document.getElementById('p1Label').textContent) : document.getElementById('p2Label').textContent) + ' Wins! 🎉';
+    document.getElementById('overTitle').textContent = title;
+    document.getElementById('overMsg').textContent = 'Final score: ' + score2 + ' – ' + score1;
+    document.getElementById('modeChoice').style.display = 'none';
+    let again = document.getElementById('playAgainBtn');
+    if (!again) {
+      again = document.createElement('button');
+      again.className = 'g-btn'; again.id = 'playAgainBtn'; again.textContent = 'Play Again';
+      again.addEventListener('click', reset);
+      document.getElementById('overlay').appendChild(again);
+    }
+    again.style.display = 'block';
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function draw() {
+    ctx.fillStyle = '#0d3b3a';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6,8]);
+    ctx.beginPath(); ctx.moveTo(0, MID_Y); ctx.lineTo(W, MID_Y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(W/2, MID_Y, 45, 0, Math.PI*2); ctx.stroke();
+
+    ctx.strokeStyle = '#f5a524'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(W/2 - GOAL_HALF, 2); ctx.lineTo(W/2 + GOAL_HALF, 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W/2 - GOAL_HALF, H-2); ctx.lineTo(W/2 + GOAL_HALF, H-2); ctx.stroke();
+
+    if (!p1 || !puck) return;
+    drawDisc(p1.x, p1.y, MALLET_R, '#a855f7');
+    drawDisc(p2.x, p2.y, MALLET_R, '#ff4fd8');
+    drawDisc(puck.x, puck.y, PUCK_R, '#f2f3f8');
+  }
+
+  function drawDisc(x, y, r, color) {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.stroke();
+  }
+
+  function setP1Target(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const scale = W / rect.width;
+    p1.tx = (clientX - rect.left) * scale;
+    p1.ty = (clientY - rect.top) * scale;
+  }
+  canvas.addEventListener('mousemove', (e) => { if (p1) setP1Target(e.clientX, e.clientY); });
+  canvas.addEventListener('touchmove', (e) => { if (p1) setP1Target(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('touchstart', (e) => { if (p1) setP1Target(e.touches[0].clientX, e.touches[0].clientY); }, {passive:true});
+
+  document.addEventListener('keydown', (e) => {
+    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) e.preventDefault();
+    if (e.key === 'ArrowLeft') keys.p2left = true;
+    if (e.key === 'ArrowRight') keys.p2right = true;
+    if (e.key === 'ArrowUp') keys.p2up = true;
+    if (e.key === 'ArrowDown') keys.p2down = true;
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft') keys.p2left = false;
+    if (e.key === 'ArrowRight') keys.p2right = false;
+    if (e.key === 'ArrowUp') keys.p2up = false;
+    if (e.key === 'ArrowDown') keys.p2down = false;
+  });
+
+  document.getElementById('vsComputer').addEventListener('click', () => startMatch('ai'));
+  document.getElementById('vsFriend').addEventListener('click', () => startMatch('pvp'));
+  document.getElementById('restart').addEventListener('click', reset);
+  draw();
+})();
+</script>
+</body>
+</html>
