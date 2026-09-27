@@ -130,12 +130,101 @@ window.GAMES_DATA = [
     thumb: "games/rps/thumb.svg",
     url: "games/rps/index.html",
     w: 340, h: 340
+  },
+  {
+    id: "pong",
+    title: "Pong",
+    slug: "pong",
+    category: "Arcade",
+    tags: ["Arcade", "Classic", "Two Player", "Retro"],
+    desc: "The original video game — rally the ball past the AI paddle. First to 7 points wins.",
+    thumb: "games/pong/thumb.svg",
+    url: "games/pong/index.html",
+    w: 480, h: 320
+  },
+  {
+    id: "spacedefender",
+    title: "Space Defender",
+    slug: "spacedefender",
+    category: "Arcade",
+    tags: ["Arcade", "Shooter", "Retro", "Action"],
+    desc: "Blast wave after wave of descending invaders before they reach your ship. How many waves can you clear?",
+    thumb: "games/spacedefender/thumb.svg",
+    url: "games/spacedefender/index.html",
+    w: 420, h: 480
+  },
+  {
+    id: "connectfour",
+    title: "Connect Four",
+    slug: "connectfour",
+    category: "Strategy",
+    tags: ["Strategy", "Classic", "Two Player", "AI"],
+    desc: "Drop pieces to connect four in a row — across, down, or diagonally — before the AI beats you to it.",
+    thumb: "games/connectfour/thumb.svg",
+    url: "games/connectfour/index.html",
+    w: 420, h: 420
+  },
+  {
+    id: "sudoku",
+    title: "Sudoku",
+    slug: "sudoku",
+    category: "Puzzle",
+    tags: ["Puzzle", "Numbers", "Logic", "Classic"],
+    desc: "Fill the grid so every row, column and 3x3 box contains 1 through 9 exactly once.",
+    thumb: "games/sudoku/thumb.svg",
+    url: "games/sudoku/index.html",
+    w: 380, h: 380
+  },
+  {
+    id: "wordguess",
+    title: "Word Guess",
+    slug: "wordguess",
+    category: "Word",
+    tags: ["Word", "Puzzle", "Vocabulary", "Daily"],
+    desc: "Guess the hidden 5-letter word in 6 tries. Green means right spot, yellow means wrong spot.",
+    thumb: "games/wordguess/thumb.svg",
+    url: "games/wordguess/index.html",
+    w: 420, h: 500
+  },
+  {
+    id: "hangman",
+    title: "Hangman",
+    slug: "hangman",
+    category: "Word",
+    tags: ["Word", "Vocabulary", "Classic", "Brain"],
+    desc: "Guess the hidden word one letter at a time across animals, countries, food and space categories.",
+    thumb: "games/hangman/thumb.svg",
+    url: "games/hangman/index.html",
+    w: 420, h: 480
+  },
+  {
+    id: "reaction",
+    title: "Reaction Test",
+    slug: "reaction",
+    category: "Skill",
+    tags: ["Skill", "Reflex", "Timed", "Fast-Paced"],
+    desc: "Wait for the panel to turn green and tap as fast as you can. Five rounds, measured in milliseconds.",
+    thumb: "games/reaction/thumb.svg",
+    url: "games/reaction/index.html",
+    w: 380, h: 400
+  },
+  {
+    id: "colorrush",
+    title: "Color Rush",
+    slug: "colorrush",
+    category: "Skill",
+    tags: ["Skill", "Reflex", "Timed", "Brain"],
+    desc: "Tap the ink color a word is printed in — not what it says. Beat the 45-second clock without slipping up.",
+    thumb: "games/colorrush/thumb.svg",
+    url: "games/colorrush/index.html",
+    w: 380, h: 380
   }
 ];
 
 window.CATEGORIES = [
-  { name: "Arcade", count: 4 },
-  { name: "Puzzle", count: 4 },
-  { name: "Strategy", count: 2 },
-  { name: "Skill", count: 2 }
+  { name: "Arcade", count: 6 },
+  { name: "Puzzle", count: 5 },
+  { name: "Strategy", count: 3 },
+  { name: "Skill", count: 4 },
+  { name: "Word", count: 2 }
 ];

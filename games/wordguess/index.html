@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Word Guess — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #wrap { display: flex; flex-direction: column; align-items: center; gap: 18px; height: 100%; justify-content: center; }
+  #grid { display: grid; grid-template-rows: repeat(6, 1fr); gap: 6px; }
+  .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .tile {
+    width: min(11vw, 52px); height: min(11vw, 52px);
+    border: 2px solid rgba(255,255,255,0.15); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(18px, 5vw, 26px); font-weight: 800; text-transform: uppercase;
+    background: #171826; color: #f2f3f8;
+  }
+  .tile.correct { background: #34d399; border-color: #34d399; color: #0a0b14; }
+  .tile.present { background: #f5a524; border-color: #f5a524; color: #0a0b14; }
+  .tile.absent { background: #2a2c40; border-color: #2a2c40; color: #6b6d82; }
+  #keyboard { display: flex; flex-direction: column; gap: 6px; width: min(94vw, 420px); }
+  .krow { display: flex; gap: 5px; justify-content: center; }
+  .key {
+    flex: 1; max-width: 40px; height: 46px; border: none; border-radius: 6px;
+    background: #1e2032; color: #f2f3f8; font-weight: 700; font-size: 13px;
+    cursor: pointer; font-family: inherit; text-transform: uppercase;
+  }
+  .key.wide { max-width: 60px; font-size: 11px; }
+  .key.correct { background: #34d399; color: #0a0b14; }
+  .key.present { background: #f5a524; color: #0a0b14; }
+  .key.absent { background: #2a2c40; color: #6b6d82; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🟩 Word Guess</div>
+    <div class="g-stats">Streak <b id="streak">0</b> Best <b id="best">0</b></div>
+    <button class="g-btn ghost" id="restart">New Word</button>
+  </div>
+  <div class="g-stage">
+    <div id="wrap">
+      <div id="grid"></div>
+      <div id="keyboard"></div>
+    </div>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">You Got It! 🎉</h2>
+      <p id="overMsg"></p>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Guess the 5-letter word in 6 tries · Type or tap keys · Enter to submit</div>
+</div>
+<script>
+(function(){
+  const WORDS = ["ABOUT","ABOVE","ACTOR","ADMIT","ADULT","AFTER","AGAIN","AGENT","AGREE","AHEAD",
+    "ALARM","ALIVE","ALLOW","ALONE","ALONG","ALTER","AMONG","ANGER","ANGLE","ANGRY",
+    "APPLE","APPLY","ARENA","ARGUE","ARISE","ARROW","ASIDE","ASSET","AVOID","AWAKE",
+    "AWARD","AWARE","BADLY","BAKER","BASIC","BEACH","BEGAN","BEGIN","BEING","BELOW",
+    "BENCH","BIRTH","BLACK","BLADE","BLAME","BLANK","BLAST","BLIND","BLOCK","BLOOD",
+    "BOARD","BOOST","BOUND","BRAIN","BRAND","BREAD","BREAK","BRIEF","BRING","BROAD",
+    "BROWN","BUILD","BUYER","CABLE","CANDY","CARGO","CARRY","CATCH","CAUSE","CHAIN",
+    "CHAIR","CHAOS","CHARM","CHART","CHASE","CHEAP","CHECK","CHEST","CHIEF","CHILD",
+    "CHOSE","CIVIL","CLAIM","CLASS","CLEAN","CLEAR","CLIMB","CLOCK","CLOSE","CLOUD",
+    "COACH","COAST","COULD","COUNT","COURT","COVER","CRAFT","CRASH","CREAM","CRIME",
+    "CROSS","CROWD","CROWN","DAILY","DANCE","DELAY","DEPTH","DOUBT","DOZEN","DRAFT",
+    "DRAMA","DRAWN","DREAM","DRESS","DRIFT","DRINK","DRIVE","EAGER","EARLY","EARTH",
+    "EIGHT","EMPTY","ENEMY","ENJOY","ENTER","EQUAL","EXACT","EXIST","EXTRA","FAITH",
+    "FALSE","FAULT","FIBER","FIELD","FIFTH","FIGHT","FINAL","FIRST","FLAME","FLASH",
+    "FLEET","FLOOR","FLUID","FOCUS","FORCE","FORTH","FOUND","FRAME","FRESH","FRONT",
+    "FRUIT","GHOST","GIANT","GIVEN","GLASS","GLOBE","GRACE","GRADE","GRAIN","GRAND",
+    "GRAPH","GRASS","GREAT","GREEN","GROSS","GROUP","GUARD","GUESS","GUEST","GUIDE"];
+
+  const gridEl = document.getElementById('grid');
+  const keyboardEl = document.getElementById('keyboard');
+  const ROWS = 6, COLS = 5;
+  let target, guesses, current, row, gameOver, keyState;
+  let streak = parseInt(localStorage.getItem('dg_wordguess_streak') || '0');
+  let best = parseInt(localStorage.getItem('dg_wordguess_best') || '0');
+  document.getElementById('streak').textContent = streak;
+  document.getElementById('best').textContent = best;
+
+  function reset() {
+    target = WORDS[Math.floor(Math.random() * WORDS.length)];
+    guesses = []; current = ''; row = 0; gameOver = false; keyState = {};
+    document.getElementById('overlay').classList.remove('show');
+    renderGrid();
+    renderKeyboard();
+  }
+
+  function renderGrid() {
+    gridEl.innerHTML = '';
+    for (let r = 0; r < ROWS; r++) {
+      const rowDiv = document.createElement('div');
+      rowDiv.className = 'row';
+      for (let c = 0; c < COLS; c++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        const g = guesses[r];
+        if (g) {
+          tile.textContent = g.letters[c];
+          tile.classList.add(g.marks[c]);
+        } else if (r === row) {
+          tile.textContent = current[c] || '';
+        }
+        rowDiv.appendChild(tile);
+      }
+      gridEl.appendChild(rowDiv);
+    }
+  }
+
+  const LAYOUT = ["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"];
+  function renderKeyboard() {
+    keyboardEl.innerHTML = '';
+    LAYOUT.forEach((rowStr, i) => {
+      const krow = document.createElement('div');
+      krow.className = 'krow';
+      if (i === 2) krow.appendChild(makeKey('ENTER', true));
+      rowStr.split('').forEach(letter => krow.appendChild(makeKey(letter, false)));
+      if (i === 2) krow.appendChild(makeKey('⌫', true, 'BACK'));
+      keyboardEl.appendChild(krow);
+    });
+  }
+
+  function makeKey(label, wide, action) {
+    const btn = document.createElement('button');
+    btn.className = 'key' + (wide ? ' wide' : '');
+    btn.textContent = label;
+    if (keyState[label]) btn.classList.add(keyState[label]);
+    btn.addEventListener('click', () => handleKey(action || label));
+    return btn;
+  }
+
+  function handleKey(key) {
+    if (gameOver) return;
+    if (key === 'ENTER') return submit();
+    if (key === 'BACK') { current = current.slice(0, -1); renderGrid(); return; }
+    if (/^[A-Z]$/.test(key) && current.length < COLS) {
+      current += key;
+      renderGrid();
+    }
+  }
+
+  function submit() {
+    if (current.length !== COLS) return;
+    const letters = current.split('');
+    const marks = Array(COLS).fill('absent');
+    const targetLetters = target.split('');
+    const used = Array(COLS).fill(false);
+
+    for (let i = 0; i < COLS; i++) {
+      if (letters[i] === targetLetters[i]) { marks[i] = 'correct'; used[i] = true; }
+    }
+    for (let i = 0; i < COLS; i++) {
+      if (marks[i] === 'correct') continue;
+      const idx = targetLetters.findIndex((t, j) => t === letters[i] && !used[j]);
+      if (idx !== -1) { marks[i] = 'present'; used[idx] = true; }
+    }
+
+    letters.forEach((l, i) => {
+      const order = { absent: 0, present: 1, correct: 2 };
+      if (!keyState[l] || order[marks[i]] > order[keyState[l]]) keyState[l] = marks[i];
+    });
+
+    guesses.push({ letters, marks });
+    current = '';
+    row++;
+    renderGrid();
+    renderKeyboard();
+
+    if (marks.every(m => m === 'correct')) {
+      gameOver = true;
+      streak++;
+      if (streak > best) { best = streak; localStorage.setItem('dg_wordguess_best', best); }
+      localStorage.setItem('dg_wordguess_streak', streak);
+      document.getElementById('streak').textContent = streak;
+      document.getElementById('best').textContent = best;
+      document.getElementById('overTitle').textContent = 'You Got It! 🎉';
+      document.getElementById('overMsg').textContent = 'Solved in ' + row + '/' + ROWS + ' — streak: ' + streak;
+      document.getElementById('overlay').classList.add('show');
+    } else if (row === ROWS) {
+      gameOver = true;
+      streak = 0;
+      localStorage.setItem('dg_wordguess_streak', streak);
+      document.getElementById('streak').textContent = streak;
+      document.getElementById('overTitle').textContent = 'Out of Tries';
+      document.getElementById('overMsg').textContent = 'The word was ' + target;
+      document.getElementById('overlay').classList.add('show');
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleKey('ENTER');
+    else if (e.key === 'Backspace') handleKey('BACK');
+    else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
+  });
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

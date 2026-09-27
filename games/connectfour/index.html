@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Connect Four — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #board {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+    width: min(90vw, 420px); background: #171826; padding: 8px; border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.08); cursor: pointer;
+  }
+  .cell { aspect-ratio: 1; border-radius: 50%; background: #0e0f1a; position: relative; }
+  .cell.r { background: #ff5c7c; }
+  .cell.y { background: #f5a524; }
+  .cell.win { box-shadow: 0 0 0 3px #34d399 inset; }
+  #colHint { display: flex; gap: 6px; width: min(90vw, 420px); margin-bottom: 6px; }
+  #colHint div { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.08); }
+  #colHint div.active { background: #a855f7; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🔴 Connect Four</div>
+    <div class="g-stats">You <b id="wins">0</b> Draws <b id="draws">0</b> AI <b id="losses">0</b></div>
+    <button class="g-btn ghost" id="restart">New Round</button>
+  </div>
+  <div class="g-stage">
+    <div style="display:flex; flex-direction:column; align-items:center;">
+      <div id="colHint"></div>
+      <div id="board"></div>
+    </div>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">Draw!</h2>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Click / tap a column to drop your piece. You're red.</div>
+</div>
+<script>
+(function(){
+  const ROWS = 6, COLS = 7;
+  const boardEl = document.getElementById('board');
+  const hintEl = document.getElementById('colHint');
+  let grid, gameOver, wins=0, draws=0, losses=0, hoverCol = -1;
+
+  function reset() {
+    grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+    gameOver = false;
+    document.getElementById('overlay').classList.remove('show');
+    render();
+  }
+
+  function render() {
+    renderHint();
+    boardEl.innerHTML = '';
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cell = document.createElement('div');
+        const v = grid[r][c];
+        cell.className = 'cell' + (v === 'R' ? ' r' : v === 'Y' ? ' y' : '');
+        cell.dataset.col = c;
+        cell.addEventListener('click', () => playerMove(c));
+        cell.addEventListener('mouseenter', () => { hoverCol = c; renderHint(); });
+        boardEl.appendChild(cell);
+      }
+    }
+  }
+
+  function renderHint() {
+    hintEl.innerHTML = '';
+    for (let c = 0; c < COLS; c++) {
+      const h = document.createElement('div');
+      if (c === hoverCol) h.className = 'active';
+      hintEl.appendChild(h);
+    }
+  }
+
+  function lowestEmptyRow(g, col) {
+    for (let r = ROWS - 1; r >= 0; r--) if (!g[r][col]) return r;
+    return -1;
+  }
+
+  function playerMove(col) {
+    if (gameOver) return;
+    const row = lowestEmptyRow(grid, col);
+    if (row === -1) return;
+    grid[row][col] = 'R';
+    render();
+    if (checkEnd('R')) return;
+    setTimeout(aiMove, 400);
+  }
+
+  function aiMove() {
+    if (gameOver) return;
+    const col = bestMove(grid);
+    const row = lowestEmptyRow(grid, col);
+    if (row !== -1) grid[row][col] = 'Y';
+    render();
+    checkEnd('Y');
+  }
+
+  function winLine(g, player) {
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (g[r][c] !== player) continue;
+        for (const [dr,dc] of dirs) {
+          const line = [[r,c]];
+          for (let k = 1; k < 4; k++) {
+            const nr = r+dr*k, nc = c+dc*k;
+            if (nr<0||nr>=ROWS||nc<0||nc>=COLS||g[nr][nc]!==player) break;
+            line.push([nr,nc]);
+          }
+          if (line.length === 4) return line;
+        }
+      }
+    }
+    return null;
+  }
+
+  function checkEnd(player) {
+    const line = winLine(grid, player);
+    if (line) {
+      gameOver = true;
+      line.forEach(([r,c]) => {
+        boardEl.children[r*COLS+c].classList.add('win');
+      });
+      if (player === 'R') { wins++; showEnd('You Win! 🎉'); } else { losses++; showEnd('AI Wins'); }
+      updateStats();
+      return true;
+    }
+    if (grid.every(row => row.every(v => v))) {
+      gameOver = true;
+      draws++;
+      updateStats();
+      showEnd("It's a Draw");
+      return true;
+    }
+    return false;
+  }
+
+  function updateStats() {
+    document.getElementById('wins').textContent = wins;
+    document.getElementById('draws').textContent = draws;
+    document.getElementById('losses').textContent = losses;
+  }
+
+  function showEnd(msg) {
+    document.getElementById('overTitle').textContent = msg;
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function validCols(g) {
+    const cols = [];
+    for (let c = 0; c < COLS; c++) if (lowestEmptyRow(g, c) !== -1) cols.push(c);
+    return cols;
+  }
+
+  function scoreWindow(cells, player) {
+    const opp = player === 'Y' ? 'R' : 'Y';
+    const countP = cells.filter(v => v === player).length;
+    const countO = cells.filter(v => v === opp).length;
+    const countE = cells.filter(v => !v).length;
+    if (countP === 4) return 1000;
+    if (countP === 3 && countE === 1) return 12;
+    if (countP === 2 && countE === 2) return 4;
+    if (countO === 3 && countE === 1) return -14;
+    if (countO === 2 && countE === 2) return -3;
+    return 0;
+  }
+
+  function evaluate(g, player) {
+    let score = 0;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (g[r][c] === player && c >= 2 && c <= 4) score += 2;
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        for (const [dr,dc] of dirs) {
+          const cells = [];
+          for (let k = 0; k < 4; k++) {
+            const nr = r+dr*k, nc = c+dc*k;
+            if (nr<0||nr>=ROWS||nc<0||nc>=COLS) { cells.length = 0; break; }
+            cells.push(g[nr][nc]);
+          }
+          if (cells.length === 4) score += scoreWindow(cells, player);
+        }
+      }
+    }
+    return score;
+  }
+
+  function minimax(g, depth, alpha, beta, maximizing) {
+    const cols = validCols(g);
+    const winY = winLine(g, 'Y'), winR = winLine(g, 'R');
+    if (winY) return { score: 100000 + depth };
+    if (winR) return { score: -100000 - depth };
+    if (cols.length === 0 || depth === 0) return { score: evaluate(g, 'Y') };
+
+    if (maximizing) {
+      let best = { score: -Infinity, col: cols[0] };
+      for (const c of cols) {
+        const row = lowestEmptyRow(g, c);
+        g[row][c] = 'Y';
+        const res = minimax(g, depth - 1, alpha, beta, false);
+        g[row][c] = null;
+        if (res.score > best.score) best = { score: res.score, col: c };
+        alpha = Math.max(alpha, res.score);
+        if (alpha >= beta) break;
+      }
+      return best;
+    } else {
+      let best = { score: Infinity, col: cols[0] };
+      for (const c of cols) {
+        const row = lowestEmptyRow(g, c);
+        g[row][c] = 'R';
+        const res = minimax(g, depth - 1, alpha, beta, true);
+        g[row][c] = null;
+        if (res.score < best.score) best = { score: res.score, col: c };
+        beta = Math.min(beta, res.score);
+        if (alpha >= beta) break;
+      }
+      return best;
+    }
+  }
+
+  function bestMove(g) {
+    return minimax(g, 5, -Infinity, Infinity, true).col;
+  }
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

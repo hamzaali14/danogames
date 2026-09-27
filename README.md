@@ -8,9 +8,10 @@ Live at: **https://hamzaali14.github.io/danogames/**
 
 ## What's already done
 
-- 12 original games, all self-contained HTML/CSS/JS, zero external dependencies:
+- 20 original games, all self-contained HTML/CSS/JS, zero external dependencies:
   Snake, 2048, Memory Match, Tic-Tac-Toe (unbeatable AI), Breakout, Minesweeper,
-  Whack-a-Mole, Flappy Block, Simon Says, 15 Puzzle, Math Sprint, Rock Paper Scissors
+  Whack-a-Mole, Flappy Block, Simon Says, 15 Puzzle, Math Sprint, Rock Paper Scissors,
+  Pong, Space Defender, Connect Four, Sudoku, Word Guess, Hangman, Reaction Test, Color Rush
 - Full site shell: `index.html`, `css/style.css`, `js/app.js`
 - Search, category filters, trending rail, favorites (saved in the browser via
   localStorage), "continue playing" history, light/dark theme toggle
@@ -27,8 +28,9 @@ The original launch used the GameMonetize free game-syndication feed to get to
 ~23-second preroll ad before you can play — that's baked into the third-party game
 files themselves, not something a website embedding them can strip out. Since the
 ask was ad-free games, that catalog was removed entirely and replaced with original,
-hand-built games instead. The tradeoff: 12 games instead of thousands, but every
-single one is genuinely ad-free, offline-capable, and fully within our control.
+hand-built games instead. The tradeoff: fewer games than a syndicated feed, but every
+single one is genuinely ad-free, offline-capable, and fully within our control. The
+catalog keeps growing over time — it started at 12 games and is now at 20.
 
 ## Run it locally
 
@@ -79,7 +81,7 @@ manifest.json        PWA manifest (installable app)
 sw.js                Service worker (offline caching — app shell + every game)
 css/style.css        All styling — dark/light premium theme
 js/app.js            All interactivity (search, filters, favorites, player)
-js/games-data.js      Catalog of the 12 original games
+js/games-data.js      Catalog of the 20 original games
 games/shared.css      Shared HUD styling used by every game
 games/<slug>/         One self-contained folder per original game
 assets/               Icons/favicon (SVG)

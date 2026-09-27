@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Hangman — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; height: 100%; justify-content: center; }
+  #board { background: #12131f; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+  #word { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 90vw; }
+  .letter-box {
+    width: 30px; height: 38px; border-bottom: 3px solid #62647a;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 800; text-transform: uppercase;
+  }
+  #category { color: #9295ad; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+  #keyboard { display: flex; flex-direction: column; gap: 6px; width: min(94vw, 460px); }
+  .krow { display: flex; gap: 5px; justify-content: center; }
+  .key {
+    flex: 1; max-width: 38px; height: 42px; border: none; border-radius: 6px;
+    background: #1e2032; color: #f2f3f8; font-weight: 700; font-size: 13px;
+    cursor: pointer; font-family: inherit; text-transform: uppercase;
+  }
+  .key.correct { background: #34d399; color: #0a0b14; }
+  .key.wrong { background: #2a2c40; color: #6b6d82; }
+  .key:disabled { cursor: default; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🎩 Hangman</div>
+    <div class="g-stats">Wins <b id="wins">0</b> Wrong <b id="wrongCount">0</b>/6</div>
+    <button class="g-btn ghost" id="restart">New Word</button>
+  </div>
+  <div class="g-stage">
+    <div id="wrap">
+      <canvas id="board" width="220" height="220"></canvas>
+      <div id="category"></div>
+      <div id="word"></div>
+      <div id="keyboard"></div>
+    </div>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">You Win! 🎉</h2>
+      <p id="overMsg"></p>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Guess the word one letter at a time · 6 wrong guesses allowed</div>
+</div>
+<script>
+(function(){
+  const BANK = {
+    Animals: ["ELEPHANT","GIRAFFE","DOLPHIN","PENGUIN","CHEETAH","KANGAROO","OCTOPUS","CROCODILE","FLAMINGO","PANTHER"],
+    Countries: ["CANADA","BRAZIL","JAPAN","EGYPT","FRANCE","MEXICO","NORWAY","THAILAND","PORTUGAL","VIETNAM"],
+    Food: ["PIZZA","BURGER","NOODLES","PANCAKE","AVOCADO","SANDWICH","OMELETTE","BURRITO","LASAGNA","PRETZEL"],
+    Space: ["GALAXY","METEOR","SATURN","NEBULA","ASTEROID","JUPITER","COMET","ROCKET","ECLIPSE","ORBIT"]
+  };
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const wordEl = document.getElementById('word');
+  const categoryEl = document.getElementById('category');
+  const keyboardEl = document.getElementById('keyboard');
+  let word, category, guessed, wrongCount, gameOver, wins;
+
+  wins = parseInt(localStorage.getItem('dg_hangman_wins') || '0');
+  document.getElementById('wins').textContent = wins;
+
+  function reset() {
+    const cats = Object.keys(BANK);
+    category = cats[Math.floor(Math.random() * cats.length)];
+    const list = BANK[category];
+    word = list[Math.floor(Math.random() * list.length)];
+    guessed = new Set();
+    wrongCount = 0;
+    gameOver = false;
+    document.getElementById('wrongCount').textContent = wrongCount;
+    document.getElementById('overlay').classList.remove('show');
+    categoryEl.textContent = category;
+    renderWord();
+    renderKeyboard();
+    drawGallows();
+  }
+
+  function renderWord() {
+    wordEl.innerHTML = '';
+    word.split('').forEach(letter => {
+      const box = document.createElement('div');
+      box.className = 'letter-box';
+      box.textContent = guessed.has(letter) ? letter : '';
+      wordEl.appendChild(box);
+    });
+  }
+
+  const LAYOUT = ["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"];
+  function renderKeyboard() {
+    keyboardEl.innerHTML = '';
+    LAYOUT.forEach(rowStr => {
+      const krow = document.createElement('div');
+      krow.className = 'krow';
+      rowStr.split('').forEach(letter => {
+        const btn = document.createElement('button');
+        btn.className = 'key';
+        btn.textContent = letter;
+        if (guessed.has(letter)) {
+          btn.disabled = true;
+          btn.classList.add(word.includes(letter) ? 'correct' : 'wrong');
+        }
+        btn.addEventListener('click', () => guess(letter));
+        krow.appendChild(btn);
+      });
+      keyboardEl.appendChild(krow);
+    });
+  }
+
+  function guess(letter) {
+    if (gameOver || guessed.has(letter)) return;
+    guessed.add(letter);
+    if (!word.includes(letter)) {
+      wrongCount++;
+      document.getElementById('wrongCount').textContent = wrongCount;
+      drawGallows();
+    }
+    renderWord();
+    renderKeyboard();
+    checkEnd();
+  }
+
+  function checkEnd() {
+    if (word.split('').every(l => guessed.has(l))) {
+      gameOver = true;
+      wins++;
+      localStorage.setItem('dg_hangman_wins', wins);
+      document.getElementById('wins').textContent = wins;
+      document.getElementById('overTitle').textContent = 'You Win! 🎉';
+      document.getElementById('overMsg').textContent = 'The word was ' + word;
+      document.getElementById('overlay').classList.add('show');
+    } else if (wrongCount >= 6) {
+      gameOver = true;
+      document.getElementById('overTitle').textContent = 'Game Over';
+      document.getElementById('overMsg').textContent = 'The word was ' + word;
+      document.getElementById('overlay').classList.add('show');
+    }
+  }
+
+  function drawGallows() {
+    ctx.clearRect(0, 0, 220, 220);
+    ctx.strokeStyle = '#9295ad';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(20, 210); ctx.lineTo(120, 210);
+    ctx.moveTo(50, 210); ctx.lineTo(50, 20);
+    ctx.moveTo(50, 20); ctx.lineTo(140, 20);
+    ctx.moveTo(140, 20); ctx.lineTo(140, 45);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#ff4fd8';
+    const parts = [
+      () => { ctx.beginPath(); ctx.arc(140, 65, 20, 0, Math.PI*2); ctx.stroke(); },
+      () => { ctx.beginPath(); ctx.moveTo(140, 85); ctx.lineTo(140, 140); ctx.stroke(); },
+      () => { ctx.beginPath(); ctx.moveTo(140, 95); ctx.lineTo(115, 120); ctx.stroke(); },
+      () => { ctx.beginPath(); ctx.moveTo(140, 95); ctx.lineTo(165, 120); ctx.stroke(); },
+      () => { ctx.beginPath(); ctx.moveTo(140, 140); ctx.lineTo(118, 175); ctx.stroke(); },
+      () => { ctx.beginPath(); ctx.moveTo(140, 140); ctx.lineTo(162, 175); ctx.stroke(); }
+    ];
+    for (let i = 0; i < wrongCount; i++) parts[i]();
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (/^[a-zA-Z]$/.test(e.key)) guess(e.key.toUpperCase());
+  });
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

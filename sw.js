@@ -1,7 +1,7 @@
 // DanoGames service worker — caches the app shell so browsing the site works offline.
 // Games themselves are loaded from third-party servers (GameMonetize) and need internet.
-const CACHE_NAME = "danogames-shell-v3";
-const GAME_SLUGS = ["snake","2048","memory","tictactoe","breakout","minesweeper","whackamole","flappy","simon","fifteen","mathsprint","rps"];
+const CACHE_NAME = "danogames-shell-v4";
+const GAME_SLUGS = ["snake","2048","memory","tictactoe","breakout","minesweeper","whackamole","flappy","simon","fifteen","mathsprint","rps","pong","spacedefender","connectfour","sudoku","wordguess","hangman","reaction","colorrush"];
 const SHELL_ASSETS = [
   "./",
   "./index.html",

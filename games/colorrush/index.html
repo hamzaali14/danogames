@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Color Rush — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #panel { display: flex; flex-direction: column; align-items: center; gap: 28px; }
+  #word { font-size: 52px; font-weight: 800; letter-spacing: 0.02em; }
+  #swatches { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: min(80vw, 300px); }
+  .swatch {
+    height: 64px; border: none; border-radius: 12px; cursor: pointer;
+    font-weight: 800; font-size: 14px; color: rgba(0,0,0,0.55); text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🎨 Color Rush</div>
+    <div class="g-stats">Score <b id="score">0</b> Best <b id="best">0</b> Time <b id="time">45s</b></div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <div id="panel">
+      <div id="word">READY</div>
+      <div id="swatches"></div>
+    </div>
+    <div class="g-overlay show" id="overlay">
+      <h2 id="overTitle">Color Rush</h2>
+      <p id="overMsg">Tap the color the word is printed in — not what it says!</p>
+      <button class="g-btn" id="again">Start</button>
+    </div>
+  </div>
+  <div class="g-hint">Tap the ink color, not the word · 45 seconds</div>
+</div>
+<script>
+(function(){
+  const COLORS = [
+    { name: 'RED', hex: '#ff5c7c' },
+    { name: 'BLUE', hex: '#22d3ee' },
+    { name: 'GREEN', hex: '#34d399' },
+    { name: 'YELLOW', hex: '#f5a524' }
+  ];
+  const wordEl = document.getElementById('word');
+  const swatchesEl = document.getElementById('swatches');
+  let score, timeLeft, current, running, countdownTimer;
+  let best = parseInt(localStorage.getItem('dg_colorrush_best') || '0');
+  document.getElementById('best').textContent = best;
+
+  function reset() {
+    clearInterval(countdownTimer);
+    score = 0; timeLeft = 45; running = true;
+    document.getElementById('score').textContent = score;
+    document.getElementById('time').textContent = timeLeft + 's';
+    document.getElementById('overlay').classList.remove('show');
+    renderSwatches();
+    nextWord();
+    countdownTimer = setInterval(() => {
+      timeLeft--;
+      document.getElementById('time').textContent = timeLeft + 's';
+      if (timeLeft <= 0) endGame();
+    }, 1000);
+  }
+
+  function renderSwatches() {
+    swatchesEl.innerHTML = '';
+    COLORS.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'swatch';
+      btn.style.background = c.hex;
+      btn.textContent = c.name;
+      btn.addEventListener('click', () => answer(c.name));
+      swatchesEl.appendChild(btn);
+    });
+  }
+
+  function nextWord() {
+    const textColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+    let inkColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+    if (Math.random() < 0.5) inkColor = textColor;
+    current = { text: textColor.name, ink: inkColor.name };
+    wordEl.textContent = textColor.name;
+    wordEl.style.color = inkColor.hex;
+  }
+
+  function answer(name) {
+    if (!running) return;
+    if (name === current.ink) {
+      score++;
+      document.getElementById('score').textContent = score;
+    } else {
+      score = Math.max(0, score - 1);
+      document.getElementById('score').textContent = score;
+    }
+    nextWord();
+  }
+
+  function endGame() {
+    running = false;
+    clearInterval(countdownTimer);
+    if (score > best) { best = score; localStorage.setItem('dg_colorrush_best', best); document.getElementById('best').textContent = best; }
+    document.getElementById('overTitle').textContent = "Time's Up!";
+    document.getElementById('overMsg').textContent = 'Score: ' + score + (score >= best && score > 0 ? ' — New best!' : '');
+    document.getElementById('again').textContent = 'Try Again';
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+})();
+</script>
+</body>
+</html>

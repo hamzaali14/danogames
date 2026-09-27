@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Reaction Test — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #pad {
+    width: min(90vw, 380px); height: min(60vh, 320px); border-radius: 16px;
+    display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px;
+    background: #ff5c7c; color: #fff; font-size: 20px; font-weight: 800; text-align: center;
+    cursor: pointer; transition: background .1s ease; user-select: none; padding: 20px;
+  }
+  #pad.ready { background: #f5a524; }
+  #pad.go { background: #34d399; }
+  #pad small { display: block; font-size: 14px; font-weight: 600; opacity: 0.85; margin-top: 6px; }
+  #rounds { display: flex; gap: 8px; }
+  #rounds span {
+    width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.15);
+  }
+  #rounds span.done { background: #a855f7; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">⚡ Reaction Test</div>
+    <div class="g-stats">Best <b id="best">–</b>ms Avg <b id="avg">–</b>ms</div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+      <div id="rounds"></div>
+      <div id="pad">Click to Start</div>
+    </div>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">Results</h2>
+      <p id="overMsg"></p>
+      <button class="g-btn" id="again">Try Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Wait for green, then click as fast as you can · 5 rounds</div>
+</div>
+<script>
+(function(){
+  const pad = document.getElementById('pad');
+  const ROUNDS = 5;
+  let state, timer, startTime, times, round;
+  let best = parseInt(localStorage.getItem('dg_reaction_best') || '0') || null;
+  if (best) document.getElementById('best').textContent = best;
+
+  function reset() {
+    times = []; round = 0; state = 'idle';
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('avg').textContent = '–';
+    renderRounds();
+    pad.textContent = 'Click to Start';
+    pad.className = '';
+  }
+
+  function renderRounds() {
+    const el = document.getElementById('rounds');
+    el.innerHTML = '';
+    for (let i = 0; i < ROUNDS; i++) {
+      const s = document.createElement('span');
+      if (i < round) s.className = 'done';
+      el.appendChild(s);
+    }
+  }
+
+  function armRound() {
+    state = 'waiting';
+    pad.className = 'ready';
+    pad.innerHTML = 'Wait for green…';
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      state = 'go';
+      startTime = performance.now();
+      pad.className = 'go';
+      pad.textContent = 'CLICK!';
+    }, 1000 + Math.random() * 2500);
+  }
+
+  function handleTap() {
+    if (state === 'idle') {
+      armRound();
+    } else if (state === 'waiting') {
+      clearTimeout(timer);
+      state = 'idle';
+      pad.className = '';
+      pad.innerHTML = 'Too soon!<small>Tap to try this round again</small>';
+    } else if (state === 'go') {
+      const ms = Math.round(performance.now() - startTime);
+      times.push(ms);
+      round++;
+      renderRounds();
+      if (round >= ROUNDS) {
+        finish();
+      } else {
+        state = 'idle';
+        pad.className = '';
+        pad.innerHTML = ms + 'ms<small>Tap for next round</small>';
+      }
+    }
+  }
+
+  function finish() {
+    const avg = Math.round(times.reduce((a,b) => a+b, 0) / times.length);
+    document.getElementById('avg').textContent = avg;
+    if (!best || avg < best) {
+      best = avg;
+      localStorage.setItem('dg_reaction_best', best);
+      document.getElementById('best').textContent = best;
+    }
+    document.getElementById('overMsg').textContent =
+      'Average: ' + avg + 'ms · Best: ' + Math.min(...times) + 'ms this round · All-time best: ' + best + 'ms';
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  pad.addEventListener('click', handleTap);
+  pad.addEventListener('touchstart', (e) => { e.preventDefault(); handleTap(); }, {passive:false});
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>
