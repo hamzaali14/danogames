@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Asteroids — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  .g-stage { background: #0e0f1a; }
+  #board { background: #05060a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">☄️ Asteroids</div>
+    <div class="g-stats">Score <b id="score">0</b> Best <b id="best">0</b> Lives <b id="lives">3</b></div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <canvas id="board" width="460" height="460"></canvas>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">Game Over</h2>
+      <p id="overMsg">Score: 0</p>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Arrow keys / A-D to turn, Up / W to thrust · Space to shoot</div>
+</div>
+<script>
+(function(){
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  let ship, bullets, rocks, score, best, lives, running, keys = {}, fireCooldown, invuln, wave;
+
+  best = parseInt(localStorage.getItem('dg_asteroids_best') || '0');
+  document.getElementById('best').textContent = best;
+
+  function wrap(p) {
+    if (p.x < 0) p.x += W; if (p.x > W) p.x -= W;
+    if (p.y < 0) p.y += H; if (p.y > H) p.y -= H;
+  }
+
+  function reset() {
+    ship = { x: W/2, y: H/2, angle: -Math.PI/2, vx: 0, vy: 0, r: 12 };
+    bullets = []; score = 0; lives = 3; running = true; fireCooldown = 0; invuln = 90; wave = 1;
+    document.getElementById('score').textContent = score;
+    document.getElementById('lives').textContent = lives;
+    document.getElementById('overlay').classList.remove('show');
+    spawnWave();
+    loop();
+  }
+
+  function spawnWave() {
+    rocks = [];
+    const count = 3 + wave;
+    for (let i = 0; i < count; i++) {
+      let x, y;
+      do { x = Math.random()*W; y = Math.random()*H; } while (Math.hypot(x-ship.x, y-ship.y) < 100);
+      rocks.push(makeRock(x, y, 3));
+    }
+  }
+
+  function makeRock(x, y, size) {
+    const r = size === 3 ? 38 : size === 2 ? 22 : 12;
+    const speed = 0.6 + Math.random()*0.8 + (3-size)*0.3;
+    const angle = Math.random()*Math.PI*2;
+    const verts = [];
+    const n = 9;
+    for (let i = 0; i < n; i++) {
+      const a = (i/n)*Math.PI*2;
+      verts.push(0.75 + Math.random()*0.5);
+    }
+    return { x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, r, size, verts, rot: Math.random()*Math.PI*2, rotSpeed: (Math.random()-0.5)*0.05 };
+  }
+
+  function loop() {
+    if (!running) return;
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function update() {
+    if (keys.left) ship.angle -= 0.075;
+    if (keys.right) ship.angle += 0.075;
+    if (keys.thrust) {
+      ship.vx += Math.cos(ship.angle) * 0.12;
+      ship.vy += Math.sin(ship.angle) * 0.12;
+    }
+    ship.vx *= 0.99; ship.vy *= 0.99;
+    ship.x += ship.vx; ship.y += ship.vy;
+    wrap(ship);
+    if (invuln > 0) invuln--;
+
+    if (fireCooldown > 0) fireCooldown--;
+    if (keys.fire && fireCooldown <= 0) {
+      bullets.push({ x: ship.x + Math.cos(ship.angle)*ship.r, y: ship.y + Math.sin(ship.angle)*ship.r,
+        vx: Math.cos(ship.angle)*6 + ship.vx, vy: Math.sin(ship.angle)*6 + ship.vy, life: 60 });
+      fireCooldown = 12;
+    }
+
+    bullets.forEach(b => { b.x += b.vx; b.y += b.vy; b.life--; wrap(b); });
+    bullets = bullets.filter(b => b.life > 0);
+
+    rocks.forEach(r => { r.x += r.vx; r.y += r.vy; r.rot += r.rotSpeed; wrap(r); });
+
+    for (const b of bullets) {
+      for (const r of rocks) {
+        if (r.dead) continue;
+        if (Math.hypot(b.x - r.x, b.y - r.y) < r.r) {
+          b.life = 0;
+          r.dead = true;
+          score += (4 - r.size) * 30;
+          document.getElementById('score').textContent = score;
+          if (r.size > 1) {
+            rocks.push(makeRock(r.x, r.y, r.size - 1));
+            rocks.push(makeRock(r.x, r.y, r.size - 1));
+          }
+        }
+      }
+    }
+    bullets = bullets.filter(b => b.life > 0);
+    rocks = rocks.filter(r => !r.dead);
+
+    if (invuln <= 0) {
+      for (const r of rocks) {
+        if (Math.hypot(ship.x - r.x, ship.y - r.y) < r.r + ship.r*0.6) {
+          loseLife();
+          break;
+        }
+      }
+    }
+
+    if (rocks.length === 0) {
+      wave++;
+      spawnWave();
+    }
+  }
+
+  function loseLife() {
+    lives--;
+    document.getElementById('lives').textContent = lives;
+    if (lives <= 0) { endGame(); return; }
+    ship.x = W/2; ship.y = H/2; ship.vx = 0; ship.vy = 0;
+    invuln = 120;
+  }
+
+  function endGame() {
+    running = false;
+    if (score > best) { best = score; localStorage.setItem('dg_asteroids_best', best); document.getElementById('best').textContent = best; }
+    document.getElementById('overTitle').textContent = 'Game Over';
+    document.getElementById('overMsg').textContent = 'Score: ' + score + (score >= best && score > 0 ? ' — New best!' : '');
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function draw() {
+    ctx.fillStyle = '#05060a';
+    ctx.fillRect(0, 0, W, H);
+
+    if (invuln <= 0 || Math.floor(invuln/6)%2===0) {
+      ctx.save();
+      ctx.translate(ship.x, ship.y);
+      ctx.rotate(ship.angle);
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(14, 0); ctx.lineTo(-10, 9); ctx.lineTo(-6, 0); ctx.lineTo(-10, -9); ctx.closePath();
+      ctx.stroke();
+      if (keys.thrust) {
+        ctx.strokeStyle = '#ff4fd8';
+        ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(-16, 0); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    ctx.fillStyle = '#f2f3f8';
+    bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 2, 0, Math.PI*2); ctx.fill(); });
+
+    ctx.strokeStyle = '#9295ad';
+    ctx.lineWidth = 2;
+    rocks.forEach(r => {
+      ctx.save();
+      ctx.translate(r.x, r.y);
+      ctx.rotate(r.rot);
+      ctx.beginPath();
+      const n = r.verts.length;
+      for (let i = 0; i <= n; i++) {
+        const a = (i/n)*Math.PI*2;
+        const rad = r.r * r.verts[i % n];
+        const px = Math.cos(a)*rad, py = Math.sin(a)*rad;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { keys.left = true; e.preventDefault(); }
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { keys.right = true; e.preventDefault(); }
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { keys.thrust = true; e.preventDefault(); }
+    if (e.key === ' ') { keys.fire = true; e.preventDefault(); }
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.thrust = false;
+    if (e.key === ' ') keys.fire = false;
+  });
+
+  let touchStartX = null;
+  canvas.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; keys.thrust = true; keys.fire = true; }, {passive:true});
+  canvas.addEventListener('touchmove', (e) => {
+    const dx = e.touches[0].clientX - touchStartX;
+    keys.left = dx < -8; keys.right = dx > 8;
+  }, {passive:true});
+  canvas.addEventListener('touchend', () => { keys.thrust = false; keys.fire = false; keys.left = false; keys.right = false; }, {passive:true});
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

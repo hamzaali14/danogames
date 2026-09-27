@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Checkers — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #board {
+    display: grid; grid-template-columns: repeat(8, 1fr);
+    width: min(90vw, 400px); aspect-ratio: 1;
+    border: 2px solid rgba(255,255,255,0.18); border-radius: 8px; overflow: hidden;
+  }
+  .sq { display: flex; align-items: center; justify-content: center; position: relative; }
+  .sq.light { background: #2a2c40; }
+  .sq.dark { background: #171826; cursor: pointer; }
+  .sq.sel { box-shadow: inset 0 0 0 3px #a855f7; }
+  .sq.dest::after { content: ''; width: 22%; height: 22%; border-radius: 50%; background: rgba(168,85,247,0.5); position: absolute; }
+  .piece { width: 76%; height: 76%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; }
+  .piece.R { background: linear-gradient(135deg, #ff8098, #ff5c7c); color: #3a0010; }
+  .piece.B { background: linear-gradient(135deg, #4b4e68, #22232f); color: #f5a524; border: 1px solid rgba(255,255,255,0.15); }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">⚫ Checkers</div>
+    <div class="g-stats">You <b id="wins">0</b> AI <b id="losses">0</b></div>
+    <button class="g-btn ghost" id="restart">New Game</button>
+  </div>
+  <div class="g-stage">
+    <div id="board"></div>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">You Win!</h2>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">You're red, moving up the board. Captures are mandatory.</div>
+</div>
+<script>
+(function(){
+  const SIZE = 8;
+  const boardEl = document.getElementById('board');
+  let board, turn, selected, forcedContinue, gameOver, wins=0, losses=0;
+
+  function emptyBoard() { return Array.from({length: SIZE}, () => Array(SIZE).fill(null)); }
+
+  function reset() {
+    board = emptyBoard();
+    for (let r = 0; r < 3; r++) for (let c = 0; c < SIZE; c++) if ((r+c)%2===1) board[r][c] = { color: 'B', king: false };
+    for (let r = 5; r < 8; r++) for (let c = 0; c < SIZE; c++) if ((r+c)%2===1) board[r][c] = { color: 'R', king: false };
+    turn = 'R'; selected = null; forcedContinue = null; gameOver = false;
+    document.getElementById('overlay').classList.remove('show');
+    render();
+  }
+
+  function dirsFor(piece) {
+    if (piece.king) return [[-1,-1],[-1,1],[1,-1],[1,1]];
+    return piece.color === 'R' ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]];
+  }
+
+  function inB(r,c) { return r>=0 && r<SIZE && c>=0 && c<SIZE; }
+
+  function getJumpsFrom(b, r, c) {
+    const piece = b[r][c];
+    if (!piece) return [];
+    const jumps = [];
+    dirsFor(piece).forEach(([dr,dc]) => {
+      const mr = r+dr, mc = c+dc, nr = r+2*dr, nc = c+2*dc;
+      if (inB(nr,nc) && b[mr] && b[mr][mc] && b[mr][mc].color !== piece.color && !b[nr][nc]) {
+        jumps.push({ to: [nr,nc], captured: [mr,mc] });
+      }
+    });
+    return jumps;
+  }
+
+  function getSimpleMovesFrom(b, r, c) {
+    const piece = b[r][c];
+    if (!piece) return [];
+    const moves = [];
+    dirsFor(piece).forEach(([dr,dc]) => {
+      const nr = r+dr, nc = c+dc;
+      if (inB(nr,nc) && !b[nr][nc]) moves.push({ to: [nr,nc] });
+    });
+    return moves;
+  }
+
+  function cloneBoard(b) { return b.map(row => row.map(cell => cell ? { color: cell.color, king: cell.king } : null)); }
+
+  function applyStep(b, from, to, captured) {
+    const nb = cloneBoard(b);
+    const piece = nb[from[0]][from[1]];
+    nb[from[0]][from[1]] = null;
+    nb[to[0]][to[1]] = piece;
+    if (captured) nb[captured[0]][captured[1]] = null;
+    let promoted = false;
+    if (!piece.king && ((piece.color === 'R' && to[0] === 0) || (piece.color === 'B' && to[0] === SIZE-1))) {
+      piece.king = true; promoted = true;
+    }
+    return { board: nb, promoted };
+  }
+
+  function getCaptureSequences(b, r, c, path) {
+    path = path || [];
+    const jumps = getJumpsFrom(b, r, c);
+    if (jumps.length === 0) return path.length ? [path] : [];
+    let results = [];
+    jumps.forEach(j => {
+      const { board: nb, promoted } = applyStep(b, [r,c], j.to, j.captured);
+      const newPath = path.concat([{ from: [r,c], to: j.to, captured: j.captured }]);
+      if (promoted) { results.push(newPath); return; }
+      const cont = getCaptureSequences(nb, j.to[0], j.to[1], newPath);
+      results = results.concat(cont);
+    });
+    return results;
+  }
+
+  function anyCaptureExists(b, color) {
+    for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+      if (b[r][c] && b[r][c].color === color && getJumpsFrom(b, r, c).length) return true;
+    }
+    return false;
+  }
+
+  function generateAllMoves(b, color) {
+    const mustCapture = anyCaptureExists(b, color);
+    const moves = [];
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (!b[r][c] || b[r][c].color !== color) continue;
+        if (mustCapture) {
+          getCaptureSequences(b, r, c, []).forEach(seq => moves.push({ from: [r,c], seq }));
+        } else {
+          getSimpleMovesFrom(b, r, c).forEach(m => moves.push({ from: [r,c], seq: [{ from: [r,c], to: m.to, captured: null }] }));
+        }
+      }
+    }
+    return moves;
+  }
+
+  function applyFullMove(b, move) {
+    let cur = b;
+    move.seq.forEach(step => { cur = applyStep(cur, step.from, step.to, step.captured).board; });
+    return cur;
+  }
+
+  function evaluate(b) {
+    let score = 0;
+    for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+      const p = b[r][c];
+      if (!p) continue;
+      let val = p.king ? 5 : 3;
+      if (p.color === 'B') { val += p.king ? 0 : (r * 0.1); score += val; }
+      else { val += p.king ? 0 : ((SIZE-1-r) * 0.1); score -= val; }
+    }
+    return score;
+  }
+
+  function minimax(b, depth, alpha, beta, maximizing) {
+    const color = maximizing ? 'B' : 'R';
+    const moves = generateAllMoves(b, color);
+    if (depth === 0 || moves.length === 0) {
+      if (moves.length === 0) return { score: maximizing ? -1000 - depth : 1000 + depth };
+      return { score: evaluate(b) };
+    }
+    let best = maximizing ? { score: -Infinity } : { score: Infinity };
+    for (const m of moves) {
+      const nb = applyFullMove(b, m);
+      const res = minimax(nb, depth - 1, alpha, beta, !maximizing);
+      if (maximizing) {
+        if (res.score > best.score) best = { score: res.score, move: m };
+        alpha = Math.max(alpha, res.score);
+      } else {
+        if (res.score < best.score) best = { score: res.score, move: m };
+        beta = Math.min(beta, res.score);
+      }
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+
+  function aiTurn() {
+    const result = minimax(board, 5, -Infinity, Infinity, true);
+    if (!result.move) { return checkGameOver(); }
+    board = applyFullMove(board, result.move);
+    turn = 'R';
+    render();
+    checkGameOver();
+  }
+
+  function checkGameOver() {
+    const rMoves = generateAllMoves(board, 'R');
+    const bMoves = generateAllMoves(board, 'B');
+    if (turn === 'R' && rMoves.length === 0) { gameOver = true; losses++; showEnd('AI Wins'); }
+    else if (turn === 'B' && bMoves.length === 0) { gameOver = true; wins++; showEnd('You Win! 🎉'); }
+    updateStats();
+  }
+
+  function updateStats() {
+    document.getElementById('wins').textContent = wins;
+    document.getElementById('losses').textContent = losses;
+  }
+  function showEnd(msg) {
+    document.getElementById('overTitle').textContent = msg;
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function squareClick(r, c) {
+    if (gameOver || turn !== 'R') return;
+    const mustCapture = anyCaptureExists(board, 'R');
+    const piece = board[r][c];
+
+    if (selected) {
+      const [sr, sc] = selected;
+      const options = mustCapture ? getJumpsFrom(board, sr, sc) : getSimpleMovesFrom(board, sr, sc);
+      const opt = options.find(o => o.to[0] === r && o.to[1] === c);
+      if (opt) {
+        const { board: nb, promoted } = applyStep(board, [sr,sc], opt.to, opt.captured || null);
+        board = nb;
+        if (opt.captured && !promoted && getJumpsFrom(board, r, c).length) {
+          selected = [r, c]; forcedContinue = [r, c];
+          render();
+          return;
+        }
+        selected = null; forcedContinue = null;
+        turn = 'B';
+        render();
+        checkGameOver();
+        if (!gameOver) setTimeout(aiTurn, 450);
+        return;
+      }
+      if (piece && piece.color === 'R' && !forcedContinue) {
+        selected = (!mustCapture || getJumpsFrom(board, r, c).length) ? [r, c] : null;
+      } else if (!forcedContinue) {
+        selected = null;
+      }
+      render();
+      return;
+    }
+
+    if (piece && piece.color === 'R') {
+      if (mustCapture && getJumpsFrom(board, r, c).length === 0) return;
+      selected = [r, c];
+      render();
+    }
+  }
+
+  function render() {
+    boardEl.innerHTML = '';
+    const mustCapture = selected ? false : anyCaptureExists(board, 'R');
+    let destOptions = [];
+    if (selected) {
+      const [sr, sc] = selected;
+      const cap = anyCaptureExists(board, 'R');
+      destOptions = (cap ? getJumpsFrom(board, sr, sc) : getSimpleMovesFrom(board, sr, sc)).map(o => o.to);
+    }
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const sq = document.createElement('div');
+        const dark = (r+c)%2===1;
+        sq.className = 'sq ' + (dark ? 'dark' : 'light');
+        if (selected && selected[0]===r && selected[1]===c) sq.classList.add('sel');
+        if (destOptions.some(([dr,dc]) => dr===r && dc===c)) sq.classList.add('dest');
+        const piece = board[r][c];
+        if (piece) {
+          const p = document.createElement('div');
+          p.className = 'piece ' + piece.color;
+          p.textContent = piece.king ? '♛' : '';
+          sq.appendChild(p);
+        }
+        if (dark) sq.addEventListener('click', () => squareClick(r, c));
+        boardEl.appendChild(sq);
+      }
+    }
+  }
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

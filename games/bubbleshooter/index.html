@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bubble Shooter — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  .g-stage { background: #0e0f1a; }
+  #board { background: #12131f; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); cursor: crosshair; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🫧 Bubble Shooter</div>
+    <div class="g-stats">Score <b id="score">0</b> Best <b id="best">0</b> Shots <b id="shots">0</b></div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <canvas id="board" width="280" height="460"></canvas>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">Game Over</h2>
+      <p id="overMsg">Score: 0</p>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Aim with mouse / drag, tap or click to shoot · Match 3+ same colors</div>
+</div>
+<script>
+(function(){
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const R = 15, COLS = 8, DY = R * 1.732, MARGIN = 10;
+  const ROWS_MAX = Math.floor((H - 90 - MARGIN) / DY);
+  const PALETTE = ['#ff5c7c', '#22d3ee', '#34d399', '#f5a524', '#a855f7'];
+  const SHOOTER_Y = H - 34;
+  const SHOOTER_X = W / 2;
+  const DANGER_ROW = ROWS_MAX - 2;
+
+  let grid, ball, aimAngle, currentColor, nextColor, score, best, shots, running, ballFlying;
+  best = parseInt(localStorage.getItem('dg_bubbleshooter_best') || '0');
+  document.getElementById('best').textContent = best;
+
+  function cellPos(row, col) {
+    const x = MARGIN + R + col * 2 * R + (row % 2 === 1 ? R : 0);
+    const y = MARGIN + R + row * DY;
+    return { x, y };
+  }
+
+  function neighbors(row, col) {
+    if (row % 2 === 0) {
+      return [[row,col-1],[row,col+1],[row-1,col-1],[row-1,col],[row+1,col-1],[row+1,col]];
+    }
+    return [[row,col-1],[row,col+1],[row-1,col],[row-1,col+1],[row+1,col],[row+1,col+1]];
+  }
+
+  function inBounds(row, col) { return row >= 0 && row < ROWS_MAX && col >= 0 && col < COLS; }
+
+  function reset() {
+    grid = Array.from({length: ROWS_MAX}, () => Array(COLS).fill(null));
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < COLS; c++) grid[r][c] = PALETTE[Math.floor(Math.random()*PALETTE.length)];
+    }
+    score = 0; shots = 0; running = true; ballFlying = false; aimAngle = -Math.PI/2;
+    document.getElementById('score').textContent = score;
+    document.getElementById('shots').textContent = shots;
+    document.getElementById('overlay').classList.remove('show');
+    currentColor = pickColor();
+    nextColor = pickColor();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function presentColors() {
+    const set = new Set();
+    for (let r = 0; r < ROWS_MAX; r++) for (let c = 0; c < COLS; c++) if (grid[r][c]) set.add(grid[r][c]);
+    return set.size ? Array.from(set) : PALETTE.slice();
+  }
+  function pickColor() {
+    const opts = presentColors();
+    return opts[Math.floor(Math.random()*opts.length)];
+  }
+
+  function loop() {
+    if (!running) return;
+    if (ballFlying) stepBall();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function stepBall() {
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+    if (ball.x - R < MARGIN) { ball.x = MARGIN + R; ball.vx *= -1; }
+    if (ball.x + R > W - MARGIN) { ball.x = W - MARGIN - R; ball.vx *= -1; }
+
+    if (ball.y - R <= MARGIN) {
+      snapTo(0, Math.round((ball.x - MARGIN - R) / (2*R)));
+      return;
+    }
+
+    let hit = null, hitDist = Infinity;
+    for (let r = 0; r < ROWS_MAX; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (!grid[r][c]) continue;
+        const p = cellPos(r, c);
+        const d = Math.hypot(ball.x - p.x, ball.y - p.y);
+        if (d < 2*R - 3 && d < hitDist) { hit = [r, c]; hitDist = d; }
+      }
+    }
+    if (hit) {
+      const [hr, hc] = hit;
+      let bestSlot = null, bestDist = Infinity;
+      neighbors(hr, hc).forEach(([nr, nc]) => {
+        if (inBounds(nr, nc) && !grid[nr][nc]) {
+          const p = cellPos(nr, nc);
+          const d = Math.hypot(ball.x - p.x, ball.y - p.y);
+          if (d < bestDist) { bestDist = d; bestSlot = [nr, nc]; }
+        }
+      });
+      if (bestSlot) snapTo(bestSlot[0], bestSlot[1]);
+      else snapTo(Math.max(0, hr-1), hc);
+      return;
+    }
+
+    if (ball.y > H) { ballFlying = false; currentColor = nextColor; nextColor = pickColor(); }
+  }
+
+  function snapTo(row, col) {
+    col = Math.max(0, Math.min(COLS-1, col));
+    row = Math.max(0, Math.min(ROWS_MAX-1, row));
+    if (grid[row][col]) {
+      const empty = neighbors(row, col).find(([r,c]) => inBounds(r,c) && !grid[r][c]);
+      if (empty) { row = empty[0]; col = empty[1]; }
+    }
+    grid[row][col] = ball.color;
+    ballFlying = false;
+    resolve(row, col);
+    currentColor = nextColor;
+    nextColor = pickColor();
+  }
+
+  function resolve(row, col) {
+    const color = grid[row][col];
+    const seen = new Set([row+','+col]);
+    const stack = [[row,col]];
+    const group = [[row,col]];
+    while (stack.length) {
+      const [r,c] = stack.pop();
+      neighbors(r,c).forEach(([nr,nc]) => {
+        const key = nr+','+nc;
+        if (inBounds(nr,nc) && !seen.has(key) && grid[nr][nc] === color) {
+          seen.add(key); stack.push([nr,nc]); group.push([nr,nc]);
+        }
+      });
+    }
+    if (group.length >= 3) {
+      group.forEach(([r,c]) => grid[r][c] = null);
+      score += group.length * 10;
+      dropFloating();
+    }
+    document.getElementById('score').textContent = score;
+
+    let remaining = 0;
+    for (let r = 0; r < ROWS_MAX; r++) for (let c = 0; c < COLS; c++) if (grid[r][c]) remaining++;
+    if (remaining === 0) return endGame(true);
+
+    for (let c = 0; c < COLS; c++) if (grid[DANGER_ROW+1] && grid[DANGER_ROW+1][c]) return endGame(false);
+
+    shots++;
+    document.getElementById('shots').textContent = shots;
+    if (shots % 6 === 0) pushRow();
+  }
+
+  function dropFloating() {
+    const anchored = new Set();
+    const stack = [];
+    for (let c = 0; c < COLS; c++) if (grid[0][c]) { anchored.add('0,'+c); stack.push([0,c]); }
+    while (stack.length) {
+      const [r,c] = stack.pop();
+      neighbors(r,c).forEach(([nr,nc]) => {
+        const key = nr+','+nc;
+        if (inBounds(nr,nc) && grid[nr][nc] && !anchored.has(key)) { anchored.add(key); stack.push([nr,nc]); }
+      });
+    }
+    let dropped = 0;
+    for (let r = 0; r < ROWS_MAX; r++) for (let c = 0; c < COLS; c++) {
+      if (grid[r][c] && !anchored.has(r+','+c)) { grid[r][c] = null; dropped++; }
+    }
+    score += dropped * 20;
+  }
+
+  function pushRow() {
+    for (let r = ROWS_MAX - 1; r > 0; r--) grid[r] = grid[r-1];
+    grid[0] = Array.from({length: COLS}, () => Math.random() < 0.85 ? PALETTE[Math.floor(Math.random()*PALETTE.length)] : null);
+    for (let c = 0; c < COLS; c++) if (grid[DANGER_ROW+1] && grid[DANGER_ROW+1][c]) return endGame(false);
+  }
+
+  function endGame(won) {
+    running = false;
+    if (score > best) { best = score; localStorage.setItem('dg_bubbleshooter_best', best); document.getElementById('best').textContent = best; }
+    document.getElementById('overTitle').textContent = won ? 'Cleared! 🎉' : 'Game Over';
+    document.getElementById('overMsg').textContent = 'Score: ' + score + (score >= best ? ' — New best!' : '');
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function fire() {
+    if (ballFlying || !running) return;
+    ballFlying = true;
+    ball = { x: SHOOTER_X, y: SHOOTER_Y, vx: Math.cos(aimAngle)*7, vy: Math.sin(aimAngle)*7, color: currentColor };
+  }
+
+  function setAim(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const scale = W / rect.width;
+    const x = (clientX - rect.left) * scale;
+    const y = (clientY - rect.top) * scale;
+    let a = Math.atan2(y - SHOOTER_Y, x - SHOOTER_X);
+    const lo = -Math.PI + 0.15, hi = -0.15;
+    if (a > hi) a = hi;
+    if (a < lo) a = lo;
+    aimAngle = a;
+  }
+
+  canvas.addEventListener('mousemove', (e) => setAim(e.clientX, e.clientY));
+  canvas.addEventListener('click', (e) => { setAim(e.clientX, e.clientY); fire(); });
+  canvas.addEventListener('touchstart', (e) => { setAim(e.touches[0].clientX, e.touches[0].clientY); }, {passive:true});
+  canvas.addEventListener('touchmove', (e) => { setAim(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('touchend', (e) => { fire(); }, {passive:true});
+
+  function draw() {
+    ctx.fillStyle = '#12131f';
+    ctx.fillRect(0, 0, W, H);
+
+    for (let r = 0; r < ROWS_MAX; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (grid[r][c]) {
+          const p = cellPos(r, c);
+          drawBubble(p.x, p.y, grid[r][c]);
+        }
+      }
+    }
+
+    ctx.strokeStyle = 'rgba(255,92,124,0.3)';
+    ctx.setLineDash([4,6]);
+    ctx.beginPath();
+    ctx.moveTo(SHOOTER_X, SHOOTER_Y);
+    ctx.lineTo(SHOOTER_X + Math.cos(aimAngle)*260, SHOOTER_Y + Math.sin(aimAngle)*260);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (ballFlying) drawBubble(ball.x, ball.y, ball.color);
+    drawBubble(SHOOTER_X, SHOOTER_Y, currentColor);
+    drawBubble(SHOOTER_X + 40, SHOOTER_Y, nextColor, 0.65);
+  }
+
+  function drawBubble(x, y, color, scale) {
+    scale = scale || 1;
+    ctx.beginPath();
+    ctx.arc(x, y, (R-1.5)*scale, 0, Math.PI*2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.stroke();
+  }
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

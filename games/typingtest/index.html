@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Typing Speed Test — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #panel { width: min(92vw, 500px); display: flex; flex-direction: column; gap: 18px; }
+  #textDisplay {
+    font-size: clamp(15px, 4vw, 19px); line-height: 1.7; font-family: 'Courier New', monospace;
+    background: #171826; border-radius: 12px; padding: 18px; border: 1px solid rgba(255,255,255,0.08);
+  }
+  #textDisplay span.correct { color: #34d399; }
+  #textDisplay span.incorrect { color: #ff5c7c; background: rgba(255,92,124,0.15); }
+  #textDisplay span.cursor { border-left: 2px solid #a855f7; }
+  #typeInput {
+    width: 100%; padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);
+    background: #12131f; color: #f2f3f8; font-family: inherit; font-size: 16px; outline: none;
+  }
+  #typeInput:focus { border-color: #a855f7; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">⌨️ Typing Speed Test</div>
+    <div class="g-stats">WPM <b id="wpm">0</b> Best <b id="best">0</b> Acc <b id="acc">100</b>%</div>
+    <button class="g-btn ghost" id="restart">New Text</button>
+  </div>
+  <div class="g-stage">
+    <div id="panel">
+      <div id="textDisplay"></div>
+      <input id="typeInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Start typing here…">
+    </div>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">Results</h2>
+      <p id="overMsg"></p>
+      <button class="g-btn" id="again">Try Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Type the text exactly as shown · Timer starts on your first keystroke</div>
+</div>
+<script>
+(function(){
+  const SENTENCES = [
+    "The quick brown fox jumps over the lazy dog near the riverbank.",
+    "Practice makes perfect when you type a little every single day.",
+    "A free and ad-free games site is a rare thing on the internet.",
+    "Programmers often listen to music while writing lines of code.",
+    "The sun set slowly behind the mountains, painting the sky orange.",
+    "She sells seashells by the seashore every single summer morning.",
+    "Learning to type quickly takes patience, practice, and consistency.",
+    "The library was quiet except for the soft turning of old pages.",
+    "A gentle breeze drifted through the open window on a warm evening.",
+    "Great things are done by a series of small things brought together.",
+    "The old clock tower chimed twelve times at the stroke of midnight.",
+    "Curiosity is the spark that turns ordinary moments into discovery.",
+    "Rain tapped softly against the glass while the fire crackled warmly.",
+    "Every keystroke you make brings you one step closer to mastery.",
+    "The chef added a pinch of salt before tasting the simmering soup.",
+    "Mountains rose sharply against a sky streaked with pink and gold.",
+    "Small steps taken consistently lead to remarkably large results.",
+    "The astronaut watched the earth spin slowly beneath the shuttle.",
+    "A well organized desk often leads to a well organized mind.",
+    "The garden bloomed with color after the first warm rain of spring."
+  ];
+
+  const displayEl = document.getElementById('textDisplay');
+  const inputEl = document.getElementById('typeInput');
+  let target, startTime, finished;
+  let best = parseInt(localStorage.getItem('dg_typingtest_best') || '0');
+  document.getElementById('best').textContent = best;
+
+  function reset() {
+    target = SENTENCES[Math.floor(Math.random() * SENTENCES.length)];
+    startTime = null;
+    finished = false;
+    inputEl.value = '';
+    document.getElementById('wpm').textContent = 0;
+    document.getElementById('acc').textContent = 100;
+    document.getElementById('overlay').classList.remove('show');
+    renderText('');
+    inputEl.focus();
+  }
+
+  function renderText(typed) {
+    displayEl.innerHTML = '';
+    for (let i = 0; i < target.length; i++) {
+      const span = document.createElement('span');
+      span.textContent = target[i];
+      if (i < typed.length) span.className = typed[i] === target[i] ? 'correct' : 'incorrect';
+      if (i === typed.length) span.classList.add('cursor');
+      displayEl.appendChild(span);
+    }
+  }
+
+  function handleInput() {
+    if (finished) return;
+    let typed = inputEl.value;
+    if (typed.length > target.length) typed = typed.slice(0, target.length);
+    if (!startTime && typed.length > 0) startTime = performance.now();
+    renderText(typed);
+
+    let correct = 0;
+    for (let i = 0; i < typed.length; i++) if (typed[i] === target[i]) correct++;
+    const acc = typed.length ? Math.round((correct / typed.length) * 100) : 100;
+    document.getElementById('acc').textContent = acc;
+
+    if (startTime) {
+      const minutes = (performance.now() - startTime) / 60000;
+      const wpm = minutes > 0 ? Math.round((typed.length / 5) / minutes) : 0;
+      document.getElementById('wpm').textContent = wpm;
+    }
+
+    if (typed.length === target.length) finish();
+  }
+
+  function finish() {
+    finished = true;
+    const minutes = (performance.now() - startTime) / 60000;
+    const wpm = Math.round((target.length / 5) / Math.max(minutes, 0.01));
+    document.getElementById('wpm').textContent = wpm;
+    if (wpm > best) { best = wpm; localStorage.setItem('dg_typingtest_best', best); document.getElementById('best').textContent = best; }
+    const acc = document.getElementById('acc').textContent;
+    document.getElementById('overMsg').textContent = wpm + ' WPM · ' + acc + '% accuracy' + (wpm >= best ? ' — New best!' : '');
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  inputEl.addEventListener('input', handleInput);
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

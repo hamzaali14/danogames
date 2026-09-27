@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Solitaire — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #felt { display: flex; flex-direction: column; gap: 10px; align-items: center; width: min(96vw, 480px); }
+  #top-row { display: flex; justify-content: space-between; width: 100%; }
+  #stock-waste, #foundations { display: flex; gap: 6px; }
+  #tableau { display: flex; gap: 6px; width: 100%; justify-content: center; }
+  .col { position: relative; width: 13.5%; height: 220px; }
+  .pile-slot {
+    width: 100%; aspect-ratio: 0.7; border-radius: 6px; border: 1.5px dashed rgba(255,255,255,0.18);
+    position: absolute; top: 0; left: 0;
+  }
+  .card {
+    position: absolute; left: 0; width: 100%; aspect-ratio: 0.7; border-radius: 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-weight: 800; font-size: clamp(11px, 3vw, 15px); cursor: pointer; user-select: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  }
+  .card.face-up { background: #f2f3f8; }
+  .card.face-up.red { color: #d6284a; }
+  .card.face-up.black { color: #1a1b26; }
+  .card.face-down { background: linear-gradient(135deg, #a855f7, #ff4fd8); }
+  .card.sel { outline: 3px solid #34d399; outline-offset: 1px; z-index: 50 !important; }
+  #stock-waste .card, #foundations .card, #foundations .pile-slot { position: static; width: 42px; }
+  #stock-waste, #foundations { height: 60px; }
+  .stack { position: relative; width: 42px; height: 60px; }
+  .stack .pile-slot { width: 42px; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🃏 Solitaire</div>
+    <div class="g-stats">Moves <b id="moves">0</b> Wins <b id="wins">0</b></div>
+    <button class="g-btn ghost" id="restart">New Game</button>
+  </div>
+  <div class="g-stage">
+    <div id="felt">
+      <div id="top-row">
+        <div id="stock-waste">
+          <div class="stack" id="stockPile"></div>
+          <div class="stack" id="wastePile"></div>
+        </div>
+        <div id="foundations">
+          <div class="stack" data-suit="S" id="fS"></div>
+          <div class="stack" data-suit="H" id="fH"></div>
+          <div class="stack" data-suit="D" id="fD"></div>
+          <div class="stack" data-suit="C" id="fC"></div>
+        </div>
+      </div>
+      <div id="tableau"></div>
+    </div>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">You Win! 🎉</h2>
+      <p id="overMsg"></p>
+      <button class="g-btn" id="again">New Game</button>
+    </div>
+  </div>
+  <div class="g-hint">Tap a card, then tap where to move it · Build down alternating colors · Aces up on foundations</div>
+</div>
+<script>
+(function(){
+  const SUITS = ['S','H','D','C'];
+  const RANK_LABEL = ['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+  const OFFSET = 20;
+  let tableau, foundations, stock, waste, selected, moves, wins;
+
+  wins = parseInt(localStorage.getItem('dg_solitaire_wins') || '0');
+  document.getElementById('wins').textContent = wins;
+
+  function colorOf(card) { return (card.suit === 'H' || card.suit === 'D') ? 'red' : 'black'; }
+  function suitSymbol(s) { return { S:'♠', H:'♥', D:'♦', C:'♣' }[s]; }
+
+  function freshDeck() {
+    const deck = [];
+    SUITS.forEach(s => { for (let r = 1; r <= 13; r++) deck.push({ suit: s, rank: r, faceUp: false }); });
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck;
+  }
+
+  function reset() {
+    const deck = freshDeck();
+    tableau = [];
+    for (let c = 0; c < 7; c++) {
+      const col = [];
+      for (let i = 0; i <= c; i++) col.push(deck.pop());
+      col[col.length - 1].faceUp = true;
+      tableau.push(col);
+    }
+    foundations = { S: [], H: [], D: [], C: [] };
+    stock = deck;
+    waste = [];
+    selected = null;
+    moves = 0;
+    document.getElementById('moves').textContent = moves;
+    document.getElementById('overlay').classList.remove('show');
+    render();
+  }
+
+  function isValidRun(group) {
+    for (let i = 1; i < group.length; i++) {
+      if (group[i].rank !== group[i-1].rank - 1 || colorOf(group[i]) === colorOf(group[i-1])) return false;
+    }
+    return true;
+  }
+
+  function clearSel() { selected = null; render(); }
+
+  function tableauCardClick(col, row) {
+    const card = tableau[col][row];
+    if (!card.faceUp) return;
+    if (selected && selected.type === 'tableau' && selected.col === col) {
+      if (selected.row === row) { clearSel(); return; }
+      const group = tableau[col].slice(row);
+      if (isValidRun(group)) { selected = { type: 'tableau', col, row }; render(); }
+      return;
+    }
+    if (selected) { attemptMoveToTableau(col); return; }
+    const group = tableau[col].slice(row);
+    if (isValidRun(group)) { selected = { type: 'tableau', col, row }; render(); }
+  }
+
+  function tableauColumnClick(col) {
+    if (tableau[col].length > 0) return;
+    if (selected) attemptMoveToTableau(col);
+  }
+
+  function attemptMoveToTableau(destCol) {
+    const group = getSelectedGroup();
+    if (!group) return;
+    const dest = tableau[destCol];
+    const lead = group[0];
+    const valid = dest.length === 0 ? lead.rank === 13 : (lead.rank === dest[dest.length-1].rank - 1 && colorOf(lead) !== colorOf(dest[dest.length-1]));
+    if (!valid) { clearSel(); return; }
+    removeSelectedFromSource();
+    dest.push(...group);
+    moves++;
+    document.getElementById('moves').textContent = moves;
+    selected = null;
+    revealTopIfNeeded();
+    render();
+  }
+
+  function getSelectedGroup() {
+    if (!selected) return null;
+    if (selected.type === 'tableau') return tableau[selected.col].slice(selected.row);
+    if (selected.type === 'waste') return waste.length ? [waste[waste.length-1]] : null;
+    return null;
+  }
+
+  function removeSelectedFromSource() {
+    if (selected.type === 'tableau') tableau[selected.col].splice(selected.row);
+    else if (selected.type === 'waste') waste.pop();
+  }
+
+  function revealTopIfNeeded() {
+    tableau.forEach(col => { if (col.length && !col[col.length-1].faceUp) col[col.length-1].faceUp = true; });
+  }
+
+  function foundationClick(suit) {
+    if (!selected) return;
+    const group = getSelectedGroup();
+    if (!group || group.length !== 1) { clearSel(); return; }
+    const card = group[0];
+    if (card.suit !== suit) return;
+    const pile = foundations[suit];
+    const valid = pile.length === 0 ? card.rank === 1 : card.rank === pile[pile.length-1].rank + 1;
+    if (!valid) { clearSel(); return; }
+    removeSelectedFromSource();
+    pile.push(card);
+    moves++;
+    document.getElementById('moves').textContent = moves;
+    selected = null;
+    revealTopIfNeeded();
+    checkWin();
+    render();
+  }
+
+  function wasteClick() {
+    if (selected) { clearSel(); return; }
+    if (waste.length) { selected = { type: 'waste' }; render(); }
+  }
+
+  function stockClick() {
+    selected = null;
+    if (stock.length === 0) {
+      while (waste.length) { const c = waste.pop(); c.faceUp = false; stock.push(c); }
+    } else {
+      const c = stock.pop();
+      c.faceUp = true;
+      waste.push(c);
+    }
+    render();
+  }
+
+  function checkWin() {
+    const total = foundations.S.length + foundations.H.length + foundations.D.length + foundations.C.length;
+    if (total === 52) {
+      wins++;
+      localStorage.setItem('dg_solitaire_wins', wins);
+      document.getElementById('wins').textContent = wins;
+      document.getElementById('overMsg').textContent = 'Solved in ' + moves + ' moves.';
+      document.getElementById('overlay').classList.add('show');
+    }
+  }
+
+  function makeCardEl(card, selectedFlag) {
+    const el = document.createElement('div');
+    el.className = 'card ' + (card.faceUp ? 'face-up ' + colorOf(card) : 'face-down') + (selectedFlag ? ' sel' : '');
+    if (card.faceUp) el.innerHTML = RANK_LABEL[card.rank] + '<br>' + suitSymbol(card.suit);
+    return el;
+  }
+
+  function render() {
+    const tableauEl = document.getElementById('tableau');
+    tableauEl.innerHTML = '';
+    tableau.forEach((col, ci) => {
+      const colDiv = document.createElement('div');
+      colDiv.className = 'col';
+      const slot = document.createElement('div');
+      slot.className = 'pile-slot';
+      colDiv.appendChild(slot);
+      colDiv.addEventListener('click', (e) => { if (e.target === colDiv || e.target === slot) tableauColumnClick(ci); });
+      col.forEach((card, ri) => {
+        const el = makeCardEl(card, selected && selected.type==='tableau' && selected.col===ci && ri >= selected.row);
+        el.style.top = (ri * OFFSET) + 'px';
+        el.addEventListener('click', (e) => { e.stopPropagation(); tableauCardClick(ci, ri); });
+        colDiv.appendChild(el);
+      });
+      tableauEl.appendChild(colDiv);
+    });
+
+    const stockEl = document.getElementById('stockPile');
+    stockEl.innerHTML = '';
+    const slotS = document.createElement('div'); slotS.className = 'pile-slot'; stockEl.appendChild(slotS);
+    if (stock.length) {
+      const el = makeCardEl({ faceUp: false });
+      stockEl.appendChild(el);
+    } else {
+      slotS.textContent = '↺'; slotS.style.display = 'flex'; slotS.style.alignItems = 'center'; slotS.style.justifyContent = 'center'; slotS.style.color = '#62647a';
+    }
+    stockEl.onclick = stockClick;
+
+    const wasteEl = document.getElementById('wastePile');
+    wasteEl.innerHTML = '';
+    const slotW = document.createElement('div'); slotW.className = 'pile-slot'; wasteEl.appendChild(slotW);
+    if (waste.length) {
+      const top = waste[waste.length-1];
+      const el = makeCardEl(top, selected && selected.type === 'waste');
+      wasteEl.appendChild(el);
+    }
+    wasteEl.onclick = wasteClick;
+
+    SUITS.forEach(s => {
+      const fEl = document.getElementById('f' + s);
+      fEl.innerHTML = '';
+      const slot = document.createElement('div'); slot.className = 'pile-slot'; fEl.appendChild(slot);
+      slot.textContent = suitSymbol(s); slot.style.display = 'flex'; slot.style.alignItems = 'center';
+      slot.style.justifyContent = 'center'; slot.style.color = 'rgba(255,255,255,0.15)'; slot.style.fontSize = '20px';
+      const pile = foundations[s];
+      if (pile.length) fEl.appendChild(makeCardEl(pile[pile.length-1]));
+      fEl.onclick = () => foundationClick(s);
+    });
+  }
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

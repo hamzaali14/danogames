@@ -8,10 +8,11 @@ Live at: **https://hamzaali14.github.io/danogames/**
 
 ## What's already done
 
-- 20 original games, all self-contained HTML/CSS/JS, zero external dependencies:
+- 28 original games, all self-contained HTML/CSS/JS, zero external dependencies:
   Snake, 2048, Memory Match, Tic-Tac-Toe (unbeatable AI), Breakout, Minesweeper,
   Whack-a-Mole, Flappy Block, Simon Says, 15 Puzzle, Math Sprint, Rock Paper Scissors,
-  Pong, Space Defender, Connect Four, Sudoku, Word Guess, Hangman, Reaction Test, Color Rush
+  Pong, Space Defender, Connect Four, Sudoku, Word Guess, Hangman, Reaction Test, Color Rush,
+  Asteroids, Block Drop, Bubble Shooter, Checkers, Match-3 Gems, Solitaire, Trivia Quiz, Typing Speed Test
 - Full site shell: `index.html`, `css/style.css`, `js/app.js`
 - Search, category filters, trending rail, favorites (saved in the browser via
   localStorage), "continue playing" history, light/dark theme toggle
@@ -30,7 +31,7 @@ files themselves, not something a website embedding them can strip out. Since th
 ask was ad-free games, that catalog was removed entirely and replaced with original,
 hand-built games instead. The tradeoff: fewer games than a syndicated feed, but every
 single one is genuinely ad-free, offline-capable, and fully within our control. The
-catalog keeps growing over time — it started at 12 games and is now at 20.
+catalog keeps growing over time — it started at 12 games and is now at 28.
 
 ## Run it locally
 
@@ -81,7 +82,7 @@ manifest.json        PWA manifest (installable app)
 sw.js                Service worker (offline caching — app shell + every game)
 css/style.css        All styling — dark/light premium theme
 js/app.js            All interactivity (search, filters, favorites, player)
-js/games-data.js      Catalog of the 20 original games
+js/games-data.js      Catalog of the 28 original games
 games/shared.css      Shared HUD styling used by every game
 games/<slug>/         One self-contained folder per original game
 assets/               Icons/favicon (SVG)

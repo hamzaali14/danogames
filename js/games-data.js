@@ -218,13 +218,102 @@ window.GAMES_DATA = [
     thumb: "games/colorrush/thumb.svg",
     url: "games/colorrush/index.html",
     w: 380, h: 380
+  },
+  {
+    id: "asteroids",
+    title: "Asteroids",
+    slug: "asteroids",
+    category: "Arcade",
+    tags: ["Arcade", "Classic", "Space", "Retro"],
+    desc: "Rotate, thrust and blast your way through waves of drifting asteroids before they wear down your ship.",
+    thumb: "games/asteroids/thumb.svg",
+    url: "games/asteroids/index.html",
+    w: 460, h: 460
+  },
+  {
+    id: "blockdrop",
+    title: "Block Drop",
+    slug: "blockdrop",
+    category: "Puzzle",
+    tags: ["Puzzle", "Classic", "Blocks", "Arcade"],
+    desc: "Rotate and stack falling blocks to clear lines. Speed ramps up every level — how high can you climb?",
+    thumb: "games/blockdrop/thumb.svg",
+    url: "games/blockdrop/index.html",
+    w: 200, h: 400
+  },
+  {
+    id: "bubbleshooter",
+    title: "Bubble Shooter",
+    slug: "bubbleshooter",
+    category: "Puzzle",
+    tags: ["Puzzle", "Aim", "Colors", "Classic"],
+    desc: "Aim and shoot to match 3 or more same-colored bubbles. Clear the board before it reaches the bottom.",
+    thumb: "games/bubbleshooter/thumb.svg",
+    url: "games/bubbleshooter/index.html",
+    w: 280, h: 460
+  },
+  {
+    id: "checkers",
+    title: "Checkers",
+    slug: "checkers",
+    category: "Strategy",
+    tags: ["Strategy", "Classic", "Two Player", "AI"],
+    desc: "Jump and capture your way across the board against a real AI opponent. Captures are mandatory — plan ahead.",
+    thumb: "games/checkers/thumb.svg",
+    url: "games/checkers/index.html",
+    w: 400, h: 400
+  },
+  {
+    id: "match3",
+    title: "Match-3 Gems",
+    slug: "match3",
+    category: "Puzzle",
+    tags: ["Puzzle", "Colors", "Matching", "Score Attack"],
+    desc: "Swap adjacent gems to line up 3 or more of a kind. You've got 20 moves to rack up the highest score.",
+    thumb: "games/match3/thumb.svg",
+    url: "games/match3/index.html",
+    w: 380, h: 380
+  },
+  {
+    id: "solitaire",
+    title: "Solitaire",
+    slug: "solitaire",
+    category: "Cards",
+    tags: ["Cards", "Classic", "Solo", "Strategy"],
+    desc: "The classic Klondike solitaire — build down in alternating colors and get every card home to the foundations.",
+    thumb: "games/solitaire/thumb.svg",
+    url: "games/solitaire/index.html",
+    w: 480, h: 400
+  },
+  {
+    id: "trivia",
+    title: "Trivia Quiz",
+    slug: "trivia",
+    category: "Skill",
+    tags: ["Trivia", "Brain", "Timed", "Knowledge"],
+    desc: "Ten rapid-fire multiple choice questions across geography, science, history and more. Beat the clock on each one.",
+    thumb: "games/trivia/thumb.svg",
+    url: "games/trivia/index.html",
+    w: 420, h: 420
+  },
+  {
+    id: "typingtest",
+    title: "Typing Speed Test",
+    slug: "typingtest",
+    category: "Skill",
+    tags: ["Skill", "Typing", "Timed", "Practice"],
+    desc: "Type the given sentence as fast and accurately as you can. Tracks your words-per-minute and accuracy.",
+    thumb: "games/typingtest/thumb.svg",
+    url: "games/typingtest/index.html",
+    w: 500, h: 320
   }
 ];
 
 window.CATEGORIES = [
-  { name: "Arcade", count: 6 },
-  { name: "Puzzle", count: 5 },
-  { name: "Strategy", count: 3 },
-  { name: "Skill", count: 4 },
-  { name: "Word", count: 2 }
+  { name: "Arcade", count: 7 },
+  { name: "Puzzle", count: 8 },
+  { name: "Strategy", count: 4 },
+  { name: "Skill", count: 6 },
+  { name: "Word", count: 2 },
+  { name: "Cards", count: 1 }
 ];

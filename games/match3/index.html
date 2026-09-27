@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Match-3 Gems — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<style>
+  #board {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px;
+    width: min(92vw, 380px); aspect-ratio: 1; background: #171826; padding: 6px;
+    border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);
+  }
+  .gem {
+    border-radius: 8px; cursor: pointer; transition: transform .1s ease;
+  }
+  .gem.sel { outline: 3px solid #f2f3f8; outline-offset: -3px; transform: scale(0.92); }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">💎 Match-3 Gems</div>
+    <div class="g-stats">Score <b id="score">0</b> Best <b id="best">0</b> Moves <b id="moves">20</b></div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <div id="board"></div>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">Out of Moves</h2>
+      <p id="overMsg">Score: 0</p>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Swap adjacent gems to match 3 or more · 20 moves</div>
+</div>
+<script>
+(function(){
+  const ROWS = 8, COLS = 8;
+  const COLORS = ['#ff5c7c', '#22d3ee', '#34d399', '#f5a524', '#a855f7', '#f2f3f8'];
+  const boardEl = document.getElementById('board');
+  let grid, selected, moves, score, best, busy;
+
+  best = parseInt(localStorage.getItem('dg_match3_best') || '0');
+  document.getElementById('best').textContent = best;
+
+  function randColor() { return Math.floor(Math.random() * COLORS.length); }
+
+  function generateGrid() {
+    const g = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const avoid = new Set();
+        if (c >= 2 && g[r][c-1] === g[r][c-2]) avoid.add(g[r][c-1]);
+        if (r >= 2 && g[r-1][c] === g[r-2][c]) avoid.add(g[r-1][c]);
+        let color;
+        do { color = randColor(); } while (avoid.has(color));
+        g[r][c] = color;
+      }
+    }
+    return g;
+  }
+
+  function hasPossibleMove(g) {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (c < COLS-1 && wouldMatch(g, r, c, r, c+1)) return true;
+        if (r < ROWS-1 && wouldMatch(g, r, c, r+1, c)) return true;
+      }
+    }
+    return false;
+  }
+
+  function wouldMatch(g, r1, c1, r2, c2) {
+    const copy = g.map(row => row.slice());
+    const tmp = copy[r1][c1]; copy[r1][c1] = copy[r2][c2]; copy[r2][c2] = tmp;
+    return findMatches(copy).size > 0;
+  }
+
+  function reset() {
+    let g;
+    let tries = 0;
+    do { g = generateGrid(); tries++; } while (!hasPossibleMove(g) && tries < 20);
+    grid = g;
+    selected = null; moves = 20; score = 0; busy = false;
+    document.getElementById('score').textContent = score;
+    document.getElementById('moves').textContent = moves;
+    document.getElementById('overlay').classList.remove('show');
+    render();
+  }
+
+  function findMatches(g) {
+    const matched = new Set();
+    for (let r = 0; r < ROWS; r++) {
+      let run = 1;
+      for (let c = 1; c <= COLS; c++) {
+        if (c < COLS && g[r][c] === g[r][c-1]) run++;
+        else {
+          if (run >= 3) for (let k = c-run; k < c; k++) matched.add(r+','+k);
+          run = 1;
+        }
+      }
+    }
+    for (let c = 0; c < COLS; c++) {
+      let run = 1;
+      for (let r = 1; r <= ROWS; r++) {
+        if (r < ROWS && g[r][c] === g[r-1][c]) run++;
+        else {
+          if (run >= 3) for (let k = r-run; k < r; k++) matched.add(k+','+c);
+          run = 1;
+        }
+      }
+    }
+    return matched;
+  }
+
+  function applyGravity(g) {
+    for (let c = 0; c < COLS; c++) {
+      const stack = [];
+      for (let r = ROWS-1; r >= 0; r--) if (g[r][c] !== null) stack.push(g[r][c]);
+      for (let r = ROWS-1; r >= 0; r--) g[r][c] = stack.length ? stack.shift() : randColor();
+    }
+  }
+
+  async function resolveCascades() {
+    let multiplier = 1;
+    while (true) {
+      const matches = findMatches(grid);
+      if (matches.size === 0) break;
+      matches.forEach(key => { const [r,c] = key.split(',').map(Number); grid[r][c] = null; });
+      render();
+      await sleep(180);
+      score += matches.size * 10 * multiplier;
+      multiplier++;
+      document.getElementById('score').textContent = score;
+      applyGravity(grid);
+      render();
+      await sleep(180);
+    }
+    if (!hasPossibleMove(grid)) { grid = generateGrid(); render(); }
+  }
+
+  function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
+
+  async function trySwap(r1, c1, r2, c2) {
+    busy = true;
+    const tmp = grid[r1][c1]; grid[r1][c1] = grid[r2][c2]; grid[r2][c2] = tmp;
+    render();
+    await sleep(120);
+    if (findMatches(grid).size === 0) {
+      const tmp2 = grid[r1][c1]; grid[r1][c1] = grid[r2][c2]; grid[r2][c2] = tmp2;
+      render();
+      busy = false;
+      return;
+    }
+    moves--;
+    document.getElementById('moves').textContent = moves;
+    await resolveCascades();
+    busy = false;
+    if (moves <= 0) endGame();
+  }
+
+  function endGame() {
+    if (score > best) { best = score; localStorage.setItem('dg_match3_best', best); document.getElementById('best').textContent = best; }
+    document.getElementById('overMsg').textContent = 'Score: ' + score + (score >= best && score > 0 ? ' — New best!' : '');
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function cellClick(r, c) {
+    if (busy) return;
+    if (!selected) { selected = [r, c]; render(); return; }
+    const [sr, sc] = selected;
+    const adjacent = (Math.abs(sr-r) + Math.abs(sc-c)) === 1;
+    if (sr === r && sc === c) { selected = null; render(); return; }
+    if (adjacent) { selected = null; trySwap(sr, sc, r, c); return; }
+    selected = [r, c];
+    render();
+  }
+
+  function render() {
+    boardEl.innerHTML = '';
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'gem' + (selected && selected[0]===r && selected[1]===c ? ' sel' : '');
+        if (grid[r][c] !== null) cell.style.background = COLORS[grid[r][c]];
+        else cell.style.background = 'transparent';
+        cell.addEventListener('click', () => cellClick(r, c));
+        boardEl.appendChild(cell);
+      }
+    }
+  }
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>
