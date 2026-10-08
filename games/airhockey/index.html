@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Air Hockey — DanoGames</title>
 <link rel="stylesheet" href="../shared.css">
+<script src="../shared.js" defer></script>
 <style>
   .g-stage { background: #0e0f1a; }
   #board { background: #0d3b3a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); touch-action: none; }
@@ -30,7 +31,7 @@
       </div>
     </div>
   </div>
-  <div class="g-hint">Bottom: drag / touch your mallet · Top (2P): Arrow keys</div>
+  <div class="g-hint" data-touch="Drag in your half of the table · 2 players: one finger each side">Bottom: drag / touch your mallet · Top (2P): Arrow keys</div>
 </div>
 <script>
 (function(){
@@ -87,6 +88,7 @@
 
     if (mode === 'pvp') {
       const speed = 5;
+      if (p2.tx !== undefined) { p2.x = p2.tx; p2.y = p2.ty; }
       if (keys.p2left) p2.x -= speed;
       if (keys.p2right) p2.x += speed;
       if (keys.p2up) p2.y -= speed;
@@ -201,8 +203,22 @@
     p1.ty = (clientY - rect.top) * scale;
   }
   canvas.addEventListener('mousemove', (e) => { if (p1) setP1Target(e.clientX, e.clientY); });
-  canvas.addEventListener('touchmove', (e) => { if (p1) setP1Target(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, {passive:false});
-  canvas.addEventListener('touchstart', (e) => { if (p1) setP1Target(e.touches[0].clientX, e.touches[0].clientY); }, {passive:true});
+
+  // Every finger drives whichever mallet owns that half of the table, so two people can play on one phone.
+  function handleTouches(e) {
+    if (!p1) return;
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const scale = W / rect.width;
+    Array.from(e.touches).forEach(t => {
+      const x = (t.clientX - rect.left) * scale;
+      const y = (t.clientY - rect.top) * scale;
+      if (y >= MID_Y) { p1.tx = x; p1.ty = y; }
+      else if (mode === 'pvp') { p2.tx = x; p2.ty = y; }
+    });
+  }
+  canvas.addEventListener('touchstart', handleTouches, {passive:false});
+  canvas.addEventListener('touchmove', handleTouches, {passive:false});
 
   document.addEventListener('keydown', (e) => {
     if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) e.preventDefault();

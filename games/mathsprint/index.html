@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Math Sprint — DanoGames</title>
 <link rel="stylesheet" href="../shared.css">
+<script src="../shared.js" defer></script>
 <style>
   #panel { text-align: center; width: min(90vw, 360px); }
   #question { font-size: 48px; font-weight: 800; margin-bottom: 24px; letter-spacing: -0.02em; }
@@ -17,6 +18,13 @@
   #feedback { height: 20px; margin-top: 10px; font-weight: 700; font-size: 14px; }
   #feedback.correct { color: #34d399; }
   #feedback.wrong { color: #ff5c7c; }
+  #keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  #keypad button {
+    height: 52px; border: none; border-radius: 12px; background: #1e2032; color: #f2f3f8;
+    font-size: 22px; font-weight: 800; font-family: inherit; cursor: pointer;
+  }
+  #keypad button:active { background: #2a2c40; }
+  #keypad button.go { background: linear-gradient(135deg, #a855f7, #ff4fd8); }
 </style>
 </head>
 <body>
@@ -31,6 +39,7 @@
       <div id="question">–</div>
       <input id="answer" type="number" inputmode="numeric" placeholder="Your answer" autocomplete="off">
       <div id="feedback"></div>
+      <div id="keypad"></div>
     </div>
     <div class="g-overlay show" id="overlay">
       <h2 id="overTitle">Math Sprint</h2>
@@ -38,7 +47,7 @@
       <button class="g-btn" id="again">Start</button>
     </div>
   </div>
-  <div class="g-hint">Type the answer and press Enter</div>
+  <div class="g-hint" data-touch="Tap the numbers — a correct answer submits itself">Type the answer and press Enter</div>
 </div>
 <script>
 (function(){
@@ -103,7 +112,31 @@
     document.getElementById('overlay').classList.add('show');
   }
 
+  if (window.matchMedia('(pointer: coarse)').matches) {
+    answerEl.readOnly = true;
+    answerEl.setAttribute('inputmode', 'none');
+  }
+
+  function autoSubmitIfCorrect() {
+    if (running && parseInt(answerEl.value, 10) === current.answer) submit();
+  }
+
+  const keypad = document.getElementById('keypad');
+  ['1','2','3','4','5','6','7','8','9','⌫','0','✓'].forEach(k => {
+    const b = document.createElement('button');
+    b.textContent = k;
+    if (k === '✓') b.className = 'go';
+    b.addEventListener('click', () => {
+      if (!running) return;
+      if (k === '✓') submit();
+      else if (k === '⌫') answerEl.value = answerEl.value.slice(0, -1);
+      else if (answerEl.value.length < 4) { answerEl.value += k; autoSubmitIfCorrect(); }
+    });
+    keypad.appendChild(b);
+  });
+
   answerEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  answerEl.addEventListener('input', autoSubmitIfCorrect);
   document.getElementById('restart').addEventListener('click', reset);
   document.getElementById('again').addEventListener('click', reset);
 })();

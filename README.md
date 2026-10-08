@@ -17,6 +17,9 @@ Live at: **https://hamzaali14.github.io/danogames/**
 - Candy Duel and Air Hockey are the first two "Multiplayer" games: each has a mode-select
   screen so you can play vs a greedy AI opponent or hot-seat vs a friend on the same device.
 - Full site shell: `index.html`, `css/style.css`, `js/app.js`
+- Works on phones and tablets: on small screens the game player goes full-screen, every
+  game scales itself to fit whatever space it gets (`games/shared.js`), arcade games show
+  on-screen touch buttons, and the phone's Back button closes the game instead of leaving the site
 - Search, category filters, trending rail, favorites (saved in the browser via
   localStorage), "continue playing" history, light/dark theme toggle
 - PWA support (`manifest.json` + `sw.js`) — visitors can "Install" the site to their

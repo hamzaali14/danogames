@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Maze Runner — DanoGames</title>
 <link rel="stylesheet" href="../shared.css">
+<script src="../shared.js" defer></script>
 <style>
   .g-stage { background: #0e0f1a; }
   #board { background: #0a0b14; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
@@ -19,13 +20,19 @@
   </div>
   <div class="g-stage">
     <canvas id="board" width="320" height="320"></canvas>
+    <div class="g-pad" id="dpad">
+      <button data-dir="left">◀</button>
+      <button data-dir="up">▲</button>
+      <button data-dir="down">▼</button>
+      <button data-dir="right">▶</button>
+    </div>
     <div class="g-overlay" id="overlay">
       <h2 id="overTitle">Maze Cleared! 🎉</h2>
       <p id="overMsg"></p>
       <button class="g-btn" id="again">New Maze</button>
     </div>
   </div>
-  <div class="g-hint">Arrow keys / WASD to navigate from top-left to the exit</div>
+  <div class="g-hint" data-touch="Swipe or hold the arrows to reach the green exit">Arrow keys / WASD to navigate from top-left to the exit</div>
 </div>
 <script>
 (function(){
@@ -133,6 +140,20 @@
   });
 
   let touchStart = null;
+  const DIRS = { up: [-1, 0, 'top'], down: [1, 0, 'bottom'], left: [0, -1, 'left'], right: [0, 1, 'right'] };
+  let holdTimer = null;
+  function stopHold() { clearInterval(holdTimer); holdTimer = null; }
+  document.querySelectorAll('#dpad button').forEach(btn => {
+    const [dr, dc, dir] = DIRS[btn.dataset.dir];
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      stopHold();
+      move(dr, dc, dir);
+      holdTimer = setInterval(() => move(dr, dc, dir), 140);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, stopHold));
+  });
+
   canvas.addEventListener('touchstart', (e) => { touchStart = e.touches[0]; }, {passive:true});
   canvas.addEventListener('touchend', (e) => {
     if (!touchStart) return;

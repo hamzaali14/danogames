@@ -7,7 +7,11 @@ html, body {
   font-family: 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
   overflow: hidden;
   touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
 }
+input, textarea { -webkit-user-select: text; user-select: text; }
 .g-shell {
   display: flex; flex-direction: column;
   height: 100%; width: 100%;
@@ -42,17 +46,53 @@ html, body {
   display: flex; align-items: center; justify-content: center;
   position: relative;
   padding: 16px;
+  overflow: hidden;
+}
+.g-fit {
+  flex: none;
+  display: flex; flex-direction: column; align-items: center;
+  transform-origin: center center;
 }
 .g-overlay {
   position: absolute; inset: 0;
   background: rgba(10,11,20,0.88);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; justify-content: safe center;
   gap: 14px; text-align: center; padding: 24px;
   opacity: 0; pointer-events: none; transition: opacity .2s ease;
   z-index: 10;
+  overflow-y: auto;
 }
 .g-overlay.show { opacity: 1; pointer-events: auto; }
 .g-overlay h2 { margin: 0; font-size: 24px; font-weight: 800; }
 .g-overlay p { margin: 0; color: #9295ad; font-size: 14px; max-width: 320px; }
 .g-hint { padding: 8px 16px; font-size: 12px; color: #62647a; text-align: center; flex-shrink: 0; }
 canvas { display: block; touch-action: none; }
+
+/* On-screen controls, only shown on touch screens */
+.g-pad { display: none; gap: 8px; margin-top: 12px; justify-content: center; flex-wrap: wrap; }
+.g-touch .g-pad { display: flex; }
+.g-pad button {
+  min-width: 56px; height: 52px; border: none; border-radius: 12px;
+  background: #1e2032; color: #f2f3f8; font-size: 20px; font-weight: 800;
+  font-family: inherit; touch-action: none;
+}
+.g-pad button:active, .g-pad button.on { background: #a855f7; }
+
+/* Inside the site's player the game name is already shown in the player bar */
+@media (max-width: 760px), (max-height: 520px) {
+  .g-embedded .g-hud .g-title { display: none; }
+}
+@media (max-width: 420px) {
+  .g-hud { padding: 8px 10px; gap: 6px; font-size: 12.5px; }
+  .g-hud .g-title { font-size: 14px; }
+  .g-hud .g-stats { gap: 10px; }
+  .g-btn { padding: 7px 12px; font-size: 12.5px; }
+  .g-stage { padding: 8px; }
+  .g-hint { padding: 6px 10px; font-size: 11px; }
+}
+@media (max-height: 460px) {
+  .g-hint { display: none; }
+  .g-hud { padding: 6px 12px; }
+  .g-stage { padding: 6px; }
+}

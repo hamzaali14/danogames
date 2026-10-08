@@ -5,18 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Block Drop — DanoGames</title>
 <link rel="stylesheet" href="../shared.css">
+<script src="../shared.js" defer></script>
 <style>
   #wrap { display: flex; gap: 16px; align-items: flex-start; }
   #board { background: #05060a; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); }
   #side { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   #next { background: #12131f; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); }
   #sideLabel { font-size: 12px; color: #9295ad; font-weight: 700; text-transform: uppercase; }
-  #touchCtl { display: none; gap: 6px; margin-top: 8px; }
-  @media (pointer: coarse) { #touchCtl { display: flex; } }
-  #touchCtl button {
-    border: none; border-radius: 8px; background: #1e2032; color: #f2f3f8;
-    font-weight: 700; padding: 10px 12px; font-family: inherit;
-  }
+  #touchCtl button { min-width: 50px; }
 </style>
 </head>
 <body>
@@ -32,13 +28,14 @@
       <div id="side">
         <div id="sideLabel">Next</div>
         <canvas id="next" width="80" height="80"></canvas>
-        <div id="touchCtl">
-          <button id="tLeft">◀</button>
-          <button id="tRot">⟳</button>
-          <button id="tRight">▶</button>
-          <button id="tDown">▼</button>
-        </div>
       </div>
+    </div>
+    <div class="g-pad" id="touchCtl">
+      <button id="tLeft">◀</button>
+      <button id="tRot">⟳</button>
+      <button id="tRight">▶</button>
+      <button id="tDown">▼</button>
+      <button id="tDrop">⤓</button>
     </div>
     <div class="g-overlay" id="overlay">
       <h2 id="overTitle">Game Over</h2>
@@ -46,7 +43,7 @@
       <button class="g-btn" id="again">Play Again</button>
     </div>
   </div>
-  <div class="g-hint">Arrows / A-D to move, Up to rotate, Down to soft-drop, Space to hard-drop</div>
+  <div class="g-hint" data-touch="◀ ▶ move · ⟳ rotate · ▼ step down · ⤓ drop">Arrows / A-D to move, Up to rotate, Down to soft-drop, Space to hard-drop</div>
 </div>
 <script>
 (function(){
@@ -241,10 +238,13 @@
     if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') softDrop = false;
   });
 
-  document.getElementById('tLeft').addEventListener('click', () => move(-1));
-  document.getElementById('tRight').addEventListener('click', () => move(1));
-  document.getElementById('tRot').addEventListener('click', () => rotate());
-  document.getElementById('tDown').addEventListener('click', () => softDropStep());
+  const touchActions = { tLeft: () => move(-1), tRight: () => move(1), tRot: rotate, tDown: softDropStep, tDrop: hardDrop };
+  Object.keys(touchActions).forEach(id => {
+    document.getElementById(id).addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (running) touchActions[id]();
+    });
+  });
 
   document.getElementById('restart').addEventListener('click', reset);
   document.getElementById('again').addEventListener('click', reset);

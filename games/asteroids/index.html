@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Asteroids — DanoGames</title>
 <link rel="stylesheet" href="../shared.css">
+<script src="../shared.js" defer></script>
 <style>
   .g-stage { background: #0e0f1a; }
   #board { background: #05060a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
@@ -19,13 +20,19 @@
   </div>
   <div class="g-stage">
     <canvas id="board" width="460" height="460"></canvas>
+    <div class="g-pad" id="shipPad">
+      <button data-key="left">↺</button>
+      <button data-key="right">↻</button>
+      <button data-key="thrust">▲</button>
+      <button data-key="fire">●</button>
+    </div>
     <div class="g-overlay" id="overlay">
       <h2 id="overTitle">Game Over</h2>
       <p id="overMsg">Score: 0</p>
       <button class="g-btn" id="again">Play Again</button>
     </div>
   </div>
-  <div class="g-hint">Arrow keys / A-D to turn, Up / W to thrust · Space to shoot</div>
+  <div class="g-hint" data-touch="Hold ↺ ↻ to turn, ▲ to thrust, ● to fire">Arrow keys / A-D to turn, Up / W to thrust · Space to shoot</div>
 </div>
 <script>
 (function(){
@@ -209,6 +216,14 @@
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.thrust = false;
     if (e.key === ' ') keys.fire = false;
+  });
+
+  document.querySelectorAll('#shipPad button').forEach(btn => {
+    const k = btn.dataset.key;
+    const on = (e) => { e.preventDefault(); keys[k] = true; btn.classList.add('on'); };
+    const off = () => { keys[k] = false; btn.classList.remove('on'); };
+    btn.addEventListener('pointerdown', on);
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, off));
   });
 
   let touchStartX = null;

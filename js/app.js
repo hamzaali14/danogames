@@ -238,10 +238,14 @@
     if (btnEl) { btnEl.classList.toggle("faved", added); btnEl.textContent = added ? "♥" : "♡"; }
     if (els.playerFav && els.playerFav.dataset.id === String(g.id)) {
       els.playerFav.classList.toggle("faved", added);
-      els.playerFav.textContent = added ? "♥ Saved" : "♡ Save";
+      setFavLabel(added);
     }
     showToast(added ? "Added to favorites" : "Removed from favorites");
     if (state.view === "favorites") renderMainGrid();
+  }
+
+  function setFavLabel(isFav) {
+    els.playerFav.innerHTML = `<span>${isFav ? "♥" : "♡"}</span><span class="fav-label">&nbsp;${isFav ? "Saved" : "Save"}</span>`;
   }
 
   /* ---------------- Recently played ---------------- */
@@ -274,24 +278,38 @@
     const isFav = getFavIds().has(g.id);
     els.playerFav.dataset.id = g.id;
     els.playerFav.classList.toggle("faved", isFav);
-    els.playerFav.textContent = isFav ? "♥ Saved" : "♡ Save";
+    setFavLabel(isFav);
 
     els.playerLoading.classList.remove("hidden");
-    els.playerFrame.onload = null;
-    els.playerFrame.src = "about:blank";
-    els.player.classList.add("open");
-    document.body.style.overflow = "hidden";
+    // A brand-new iframe per game: re-pointing an existing iframe's src adds session-history
+    // entries, which would make the phone's Back button step through the frame instead of closing it.
+    const frame = freshFrame();
+    frame.onload = () => { els.playerLoading.classList.add("hidden"); };
+    frame.src = g.url;
+    els.playerFrame.replaceWith(frame);
+    els.playerFrame = frame;
 
-    requestAnimationFrame(() => {
-      els.playerFrame.onload = () => { els.playerLoading.classList.add("hidden"); };
-      els.playerFrame.src = g.url;
-    });
+    els.player.classList.add("open");
+    document.body.classList.add("player-open");
+    if (!(history.state && history.state.dgPlayer)) history.pushState({ dgPlayer: true }, "");
+  }
+  function freshFrame() {
+    const f = els.playerFrame.cloneNode(false);
+    f.removeAttribute("src");
+    f.onload = null;
+    return f;
+  }
+  function requestClosePlayer() {
+    if (!els.player.classList.contains("open")) return;
+    if (history.state && history.state.dgPlayer) history.back();
+    else closePlayer();
   }
   function closePlayer() {
     els.player.classList.remove("open");
-    document.body.style.overflow = "";
-    els.playerFrame.onload = null;
-    els.playerFrame.src = "about:blank";
+    document.body.classList.remove("player-open");
+    const blank = freshFrame();
+    els.playerFrame.replaceWith(blank);
+    els.playerFrame = blank;
     currentGame = null;
     renderContinuePlaying();
   }
@@ -350,14 +368,17 @@
   /* ---------------- Events ---------------- */
   function bindEvents() {
     els.loadMoreBtn.addEventListener("click", loadMore);
-    $("#closePlayer").addEventListener("click", closePlayer);
-    els.player.addEventListener("click", (e) => { if (e.target === els.player) closePlayer(); });
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePlayer(); });
+    $("#closePlayer").addEventListener("click", requestClosePlayer);
+    els.player.addEventListener("click", (e) => { if (e.target === els.player) requestClosePlayer(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") requestClosePlayer(); });
+    window.addEventListener("popstate", () => { if (els.player.classList.contains("open")) closePlayer(); });
 
     els.playerFav.addEventListener("click", () => { if (currentGame) toggleFav(currentGame, null); });
-    $("#playerFullscreen").addEventListener("click", () => {
+    const fsBtn = $("#playerFullscreen");
+    if (!(document.fullscreenEnabled || document.webkitFullscreenEnabled)) fsBtn.classList.add("unsupported");
+    fsBtn.addEventListener("click", () => {
       const el = els.playerFrame;
-      if (el.requestFullscreen) el.requestFullscreen();
+      if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
       else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
     });
 

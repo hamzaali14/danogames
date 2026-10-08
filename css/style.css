@@ -441,13 +441,15 @@ button { font-family: inherit; }
 .player-top h3 { margin: 0; font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player-top .pcat { font-size: 12px; color: var(--text-faint); }
 .player-top .pactions { display: flex; gap: 8px; flex-shrink: 0; }
+.player-top #playerFav { width: auto; padding: 0 12px; white-space: nowrap; font-size: 14px; font-weight: 600; }
+.player-top .icon-btn.unsupported { display: none; }
 
 .player-stage {
   position: relative;
   width: 100%;
-  aspect-ratio: 16/9;
+  height: min(70vh, 680px);
   background: #000;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
 }
 .player-stage iframe { width: 100%; height: 100%; border: none; display: block; }
@@ -528,5 +530,32 @@ button { font-family: inherit; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
   .player-top .pcat { display: none; }
 }
+
+/* Phones and landscape phones: the player takes over the whole screen */
+@media (max-width: 760px), (max-height: 520px) {
+  .player-overlay { padding: 0; height: 100vh; height: 100dvh; bottom: auto; backdrop-filter: none; background: var(--bg-alt); }
+  .player-modal {
+    max-width: none; max-height: none; width: 100%; height: 100%;
+    border: 0; border-radius: 0; box-shadow: none; transform: none;
+  }
+  .player-overlay.open .player-modal { transform: none; }
+  .player-top {
+    padding: 6px 10px; gap: 8px;
+    padding-top: max(6px, env(safe-area-inset-top));
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+  }
+  .player-top .ptitle img { width: 28px; height: 28px; }
+  .player-top h3 { font-size: 15px; }
+  .player-top .icon-btn { height: 36px; width: 36px; }
+  .player-top #playerFav { width: auto; }
+  .player-stage { height: auto; flex: 1 1 0; padding-bottom: env(safe-area-inset-bottom); }
+  .player-desc { display: none; }
+}
+@media (max-width: 420px) {
+  .player-top #playerFav { width: 36px; padding: 0; }
+  .player-top #playerFav .fav-label { display: none; }
+}
+body.player-open { overflow: hidden; overscroll-behavior: none; }
 
 .hidden { display: none !important; }
