@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Snakes &amp; Ladders — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<script src="../shared.js" defer></script>
+<style>
+  #boardWrap { position: relative; width: 340px; height: 340px; border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,0.12); }
+  #grid { display: grid; grid-template-columns: repeat(10, 1fr); width: 100%; height: 100%; }
+  .sq { display: flex; align-items: flex-start; justify-content: flex-start; padding: 2px 3px; font-size: 9px; font-weight: 700; color: rgba(10,11,20,0.55); }
+  .sq.a { background: #f5e6c8; } .sq.b { background: #e6d3ad; }
+  .sq.goal { background: #f5a524; color: #0a0b14; }
+  #art { position: absolute; inset: 0; pointer-events: none; }
+  .token {
+    position: absolute; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5); transition: left .16s ease, top .16s ease; z-index: 5;
+    display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff;
+  }
+  .token.slide { transition: left .55s ease-in-out, top .55s ease-in-out; }
+  #t1 { background: #a855f7; } #t2 { background: #22d3ee; }
+  #controls { display: flex; align-items: center; gap: 14px; margin-top: 12px; width: 340px; }
+  #dice {
+    width: 72px; height: 72px; border-radius: 16px; border: none; font-size: 54px; line-height: 1;
+    background: #f2f3f8; color: #12131f; cursor: pointer; flex-shrink: 0; touch-action: manipulation;
+    box-shadow: 0 4px 0 #9295ad;
+  }
+  #dice:active { transform: translateY(2px); box-shadow: 0 2px 0 #9295ad; }
+  #dice:disabled { opacity: 0.55; cursor: default; }
+  #dice.p1 { box-shadow: 0 4px 0 #a855f7; } #dice.p2 { box-shadow: 0 4px 0 #22d3ee; }
+  #msg { font-weight: 700; font-size: 15px; line-height: 1.35; }
+  #msg .who1 { color: #c084fc; } #msg .who2 { color: #22d3ee; }
+  #modeChoice { display: flex; flex-direction: column; gap: 12px; width: 100%; align-items: center; }
+  #modeChoice button { width: 100%; max-width: 280px; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🐍 Snakes &amp; Ladders</div>
+    <div class="g-stats"><span id="p1Label">You</span> <b id="p1Pos">0</b> <span id="p2Label">CPU</span> <b id="p2Pos">0</b></div>
+    <button class="g-btn ghost" id="restart">New Game</button>
+  </div>
+  <div class="g-stage">
+    <div style="display:flex; flex-direction:column; align-items:center;">
+      <div id="boardWrap">
+        <div id="grid"></div>
+        <svg id="art" viewBox="0 0 340 340"></svg>
+        <div class="token" id="t1">1</div>
+        <div class="token" id="t2">2</div>
+      </div>
+      <div id="controls">
+        <button id="dice" aria-label="Roll the dice">🎲</button>
+        <div id="msg">Tap the dice to roll!</div>
+      </div>
+    </div>
+    <div class="g-overlay show" id="overlay">
+      <h2 id="overTitle">Snakes &amp; Ladders</h2>
+      <p id="overMsg">Race to square 100! Ladders lift you up, snakes slide you down. Roll a 6 to go again.</p>
+      <div id="modeChoice">
+        <button class="g-btn" id="vsComputer">Play vs Computer</button>
+        <button class="g-btn ghost" id="vsFriend">Play vs Friend (pass &amp; play)</button>
+      </div>
+      <button class="g-btn" id="again" style="display:none">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Tap the dice to roll · Land exactly on 100 to win</div>
+</div>
+<script>
+(function(){
+  const CELL = 34;
+  const LADDERS = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100 };
+  const SNAKES = { 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 };
+  const FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+  const dice = document.getElementById('dice'), msg = document.getElementById('msg');
+  let pos, turn, mode, busy, over, gameId = 0;
+
+  function center(n) {
+    if (n < 1) n = 1;
+    const fromBottom = Math.floor((n - 1) / 10);
+    let col = (n - 1) % 10;
+    if (fromBottom % 2 === 1) col = 9 - col;
+    return { x: col * CELL + CELL / 2, y: (9 - fromBottom) * CELL + CELL / 2 };
+  }
+
+  function buildBoard() {
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    for (let row = 0; row < 10; row++) {
+      for (let col = 0; col < 10; col++) {
+        const fromBottom = 9 - row;
+        const n = fromBottom * 10 + (fromBottom % 2 === 1 ? 10 - col : col + 1);
+        const d = document.createElement('div');
+        d.className = 'sq ' + ((row + col) % 2 ? 'a' : 'b') + (n === 100 ? ' goal' : '');
+        d.textContent = n;
+        grid.appendChild(d);
+      }
+    }
+    const NS = 'http://www.w3.org/2000/svg';
+    const art = document.getElementById('art');
+    art.innerHTML = '';
+    const mk = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); art.appendChild(e); return e; };
+    Object.entries(LADDERS).forEach(([a, b]) => {
+      const p = center(+a), q = center(+b);
+      const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy), nx = -dy / len * 6, ny = dx / len * 6;
+      [1, -1].forEach(s => mk('line', { x1: p.x + nx * s, y1: p.y + ny * s, x2: q.x + nx * s, y2: q.y + ny * s, stroke: '#8b5a2b', 'stroke-width': 3.5, 'stroke-linecap': 'round' }));
+      const rungs = Math.max(2, Math.floor(len / 14));
+      for (let k = 1; k < rungs; k++) {
+        const t = k / rungs, cx = p.x + dx * t, cy = p.y + dy * t;
+        mk('line', { x1: cx + nx, y1: cy + ny, x2: cx - nx, y2: cy - ny, stroke: '#a8743d', 'stroke-width': 3, 'stroke-linecap': 'round' });
+      }
+    });
+    const SNAKE_COLORS = ['#34d399', '#ff5c7c', '#a855f7', '#f5a524', '#22d3ee'];
+    Object.entries(SNAKES).forEach(([a, b], i) => {
+      const h = center(+a), t = center(+b);
+      const mx = (h.x + t.x) / 2, my = (h.y + t.y) / 2;
+      const dx = t.x - h.x, dy = t.y - h.y, len = Math.hypot(dx, dy);
+      const off = Math.min(40, len / 3) * (i % 2 ? 1 : -1);
+      const c1x = h.x + dx * 0.33 - dy / len * off, c1y = h.y + dy * 0.33 + dx / len * off;
+      const c2x = h.x + dx * 0.66 + dy / len * off, c2y = h.y + dy * 0.66 - dx / len * off;
+      const color = SNAKE_COLORS[i % SNAKE_COLORS.length];
+      mk('path', { d: `M${h.x},${h.y} C${c1x},${c1y} ${c2x},${c2y} ${t.x},${t.y}`, stroke: 'rgba(0,0,0,0.25)', 'stroke-width': 9, fill: 'none', 'stroke-linecap': 'round' });
+      mk('path', { d: `M${h.x},${h.y} C${c1x},${c1y} ${c2x},${c2y} ${t.x},${t.y}`, stroke: color, 'stroke-width': 6, fill: 'none', 'stroke-linecap': 'round' });
+      mk('circle', { cx: h.x, cy: h.y, r: 7, fill: color });
+      mk('circle', { cx: h.x - 2.5, cy: h.y - 2, r: 1.6, fill: '#0a0b14' });
+      mk('circle', { cx: h.x + 2.5, cy: h.y - 2, r: 1.6, fill: '#0a0b14' });
+    });
+  }
+
+  function placeTokens() {
+    [1, 2].forEach(p => {
+      const c = center(pos[p]);
+      const shared = pos[1] === pos[2];
+      const ox = shared ? (p === 1 ? -6 : 6) : 0;
+      const t = document.getElementById('t' + p);
+      t.style.left = (c.x - 11 + ox) + 'px';
+      t.style.top = (c.y - 11 + (shared ? (p === 1 ? -4 : 4) : 0)) + 'px';
+    });
+    document.getElementById('p1Pos').textContent = pos[1];
+    document.getElementById('p2Pos').textContent = pos[2];
+  }
+
+  const name = (p) => p === 1 ? (mode === 'ai' ? 'You' : 'Player 1') : (mode === 'ai' ? 'Computer' : 'Player 2');
+  const who = (p) => `<span class="who${p}">${name(p)}</span>`;
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  function setTurnUI() {
+    dice.className = 'p' + turn;
+    const aiTurn = mode === 'ai' && turn === 2;
+    dice.disabled = busy || over || aiTurn;
+    if (!busy && !over) msg.innerHTML = aiTurn ? who(2) + ' is rolling…' : who(turn) + (mode === 'ai' ? ', tap the dice!' : "'s turn — tap the dice!");
+  }
+
+  function reset() {
+    gameId++;
+    over = true;
+    document.getElementById('overTitle').textContent = 'Snakes & Ladders';
+    document.getElementById('overMsg').textContent = 'Race to square 100! Ladders lift you up, snakes slide you down. Roll a 6 to go again.';
+    document.getElementById('modeChoice').style.display = 'flex';
+    document.getElementById('again').style.display = 'none';
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function start(m) {
+    gameId++;
+    mode = m; pos = { 1: 0, 2: 0 }; turn = 1; busy = false; over = false;
+    document.getElementById('p1Label').textContent = mode === 'ai' ? 'You' : 'P1';
+    document.getElementById('p2Label').textContent = mode === 'ai' ? 'CPU' : 'P2';
+    document.getElementById('overlay').classList.remove('show');
+    dice.textContent = '🎲';
+    placeTokens();
+    setTurnUI();
+  }
+
+  async function roll() {
+    if (busy || over) return;
+    const id = gameId;
+    const sleep = (ms) => new Promise((res, rej) => setTimeout(() => id === gameId ? res() : rej('stale'), ms));
+    try { await doRoll(sleep); } catch (e) { if (e !== 'stale') throw e; }
+  }
+
+  async function doRoll(sleep) {
+    busy = true; setTurnUI();
+    for (let k = 0; k < 8; k++) { dice.textContent = FACES[Math.floor(Math.random() * 6)]; await sleep(55); }
+    const d = 1 + Math.floor(Math.random() * 6);
+    dice.textContent = FACES[d - 1];
+    const p = turn;
+    if (pos[p] + d > 100) {
+      msg.innerHTML = who(p) + ` rolled ${d} — need exactly ${100 - pos[p]} to finish.`;
+      await sleep(900);
+    } else {
+      msg.innerHTML = who(p) + ` rolled a ${d}!`;
+      const tok = document.getElementById('t' + p);
+      for (let k = 0; k < d; k++) { pos[p]++; placeTokens(); await sleep(170); }
+      const jump = LADDERS[pos[p]] || SNAKES[pos[p]];
+      if (jump) {
+        const up = jump > pos[p];
+        msg.innerHTML = who(p) + (up ? ` climbed a ladder to ${jump}! 🪜` : ` hit a snake — down to ${jump}! 🐍`);
+        await sleep(250);
+        tok.classList.add('slide');
+        pos[p] = jump; placeTokens();
+        await sleep(600);
+        tok.classList.remove('slide');
+      }
+      if (pos[p] === 100) return win(p);
+    }
+    if (d === 6 && pos[p] < 100) {
+      msg.innerHTML = who(p) + ' rolled a 6 — roll again! 🎉';
+      await sleep(700);
+    } else {
+      turn = turn === 1 ? 2 : 1;
+    }
+    busy = false;
+    setTurnUI();
+    if (mode === 'ai' && turn === 2) { await sleep(650); roll(); }
+  }
+
+  function win(p) {
+    over = true; busy = false; setTurnUI();
+    msg.innerHTML = who(p) + ' reached 100! 🏆';
+    setTimeout(() => {
+      document.getElementById('overTitle').textContent = name(p) + (mode === 'ai' && p === 2 ? ' Wins' : ' Win' + (mode === 'ai' ? '' : 's') + '! 🎉');
+      document.getElementById('overMsg').textContent = name(p) + ' made it to square 100 first.';
+      document.getElementById('modeChoice').style.display = 'none';
+      document.getElementById('again').style.display = 'block';
+      document.getElementById('overlay').classList.add('show');
+    }, 900);
+  }
+
+  dice.addEventListener('click', () => { if (!(mode === 'ai' && turn === 2)) roll(); });
+  document.getElementById('vsComputer').addEventListener('click', () => start('ai'));
+  document.getElementById('vsFriend').addEventListener('click', () => start('pvp'));
+  document.getElementById('again').addEventListener('click', reset);
+  document.getElementById('restart').addEventListener('click', reset);
+  buildBoard();
+  pos = { 1: 0, 2: 0 }; turn = 1; mode = 'ai'; over = true;
+  placeTokens();
+  reset();
+})();
+</script>
+</body>
+</html>

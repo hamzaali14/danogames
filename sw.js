@@ -1,6 +1,6 @@
 // DanoGames service worker — every game is same-origin, so the whole site (games included) works offline.
-const CACHE_NAME = "danogames-v7";
-const GAME_SLUGS = ["snake","2048","memory","tictactoe","breakout","minesweeper","whackamole","flappy","simon","fifteen","mathsprint","rps","pong","spacedefender","connectfour","sudoku","wordguess","hangman","reaction","colorrush","asteroids","blockdrop","bubbleshooter","checkers","match3","solitaire","trivia","typingtest","candyduel","airhockey","mazerunner","towerstack"];
+const CACHE_NAME = "danogames-v8";
+const GAME_SLUGS = ["snake","2048","memory","tictactoe","breakout","minesweeper","whackamole","flappy","simon","fifteen","mathsprint","rps","pong","spacedefender","connectfour","sudoku","wordguess","hangman","reaction","colorrush","asteroids","blockdrop","bubbleshooter","checkers","match3","solitaire","trivia","typingtest","candyduel","airhockey","mazerunner","towerstack","taptiles","fruitslice","skyhopper","battleship","dotsboxes","snakesladders"];
 const SHELL_ASSETS = [
   "./",
   "./index.html",

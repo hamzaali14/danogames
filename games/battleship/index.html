@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Battleship — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<script src="../shared.js" defer></script>
+<style>
+  #wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .label { font-size: 12px; font-weight: 800; color: #9295ad; text-transform: uppercase; letter-spacing: 0.05em; }
+  .grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; background: #0d2a4a; padding: 5px; border-radius: 10px; }
+  #enemy { width: 320px; }
+  #mine { width: 200px; }
+  .cell { aspect-ratio: 1; border-radius: 4px; background: #13406b; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  #mine .cell { font-size: 11px; }
+  #enemy .cell { cursor: pointer; }
+  #enemy .cell:not(.shot):active { background: #1b5a96; }
+  .cell.ship { background: #6b7a90; }
+  .cell.miss::after { content: ''; width: 28%; height: 28%; border-radius: 50%; background: rgba(255,255,255,0.55); }
+  .cell.hit { background: #ff5c7c; }
+  .cell.hit::after { content: '✕'; color: #fff; font-weight: 800; }
+  .cell.sunk { background: #8a1f3a; }
+  #status { min-height: 22px; font-weight: 700; font-size: 15px; text-align: center; }
+  #fleetRow { display: flex; gap: 10px; align-items: center; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🚢 Battleship</div>
+    <div class="g-stats">Enemy ships <b id="enemyLeft">4</b> Yours <b id="mineLeft">4</b></div>
+    <button class="g-btn ghost" id="restart">New Game</button>
+  </div>
+  <div class="g-stage">
+    <div id="wrap">
+      <div id="status">Your turn — tap the enemy waters to fire!</div>
+      <div class="label">Enemy waters</div>
+      <div class="grid" id="enemy"></div>
+      <div id="fleetRow">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+          <div class="label">Your fleet</div>
+          <div class="grid" id="mine"></div>
+        </div>
+        <button class="g-btn ghost" id="shuffle">🔀 Move ships</button>
+      </div>
+    </div>
+    <div class="g-overlay" id="overlay">
+      <h2 id="overTitle">You Win!</h2>
+      <p id="overMsg"></p>
+      <button class="g-btn" id="again">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Sink all 4 enemy ships before the computer sinks yours</div>
+</div>
+<script>
+(function(){
+  const N = 8, SHIPS = [{ name: 'Battleship', len: 4 }, { name: 'Cruiser', len: 3 }, { name: 'Submarine', len: 3 }, { name: 'Destroyer', len: 2 }];
+  const enemyEl = document.getElementById('enemy'), mineEl = document.getElementById('mine'), statusEl = document.getElementById('status');
+  let enemy, mine, playerTurn, gameOver, started, wins;
+  wins = parseInt(localStorage.getItem('dg_battleship_wins') || '0');
+
+  function placeFleet() {
+    const board = { ships: [], owner: Array.from({ length: N * N }, () => -1), shot: Array(N * N).fill(false) };
+    SHIPS.forEach((s, si) => {
+      while (true) {
+        const horiz = Math.random() < 0.5;
+        const r = Math.floor(Math.random() * (horiz ? N : N - s.len + 1));
+        const c = Math.floor(Math.random() * (horiz ? N - s.len + 1 : N));
+        const cells = Array.from({ length: s.len }, (_, k) => horiz ? r * N + c + k : (r + k) * N + c);
+        if (cells.every(i => board.owner[i] === -1)) {
+          cells.forEach(i => board.owner[i] = si);
+          board.ships.push({ name: s.name, cells, hits: 0 });
+          break;
+        }
+      }
+    });
+    return board;
+  }
+
+  function reset() {
+    enemy = placeFleet(); mine = placeFleet();
+    playerTurn = true; gameOver = false; started = false;
+    document.getElementById('shuffle').disabled = false;
+    document.getElementById('shuffle').style.visibility = 'visible';
+    document.getElementById('overlay').classList.remove('show');
+    setStatus('Your turn — tap the enemy waters to fire!');
+    render();
+  }
+
+  function setStatus(t) { statusEl.textContent = t; }
+  const shipsLeft = (b) => b.ships.filter(s => s.hits < s.cells.length).length;
+
+  function fire(board, i) {
+    board.shot[i] = true;
+    const si = board.owner[i];
+    if (si < 0) return { hit: false };
+    const ship = board.ships[si];
+    ship.hits++;
+    return { hit: true, sunk: ship.hits === ship.cells.length ? ship : null };
+  }
+
+  function playerFire(i) {
+    if (!playerTurn || gameOver || enemy.shot[i]) return;
+    if (!started) { started = true; document.getElementById('shuffle').style.visibility = 'hidden'; }
+    const res = fire(enemy, i);
+    setStatus(res.sunk ? '💥 You sunk their ' + res.sunk.name + '!' : res.hit ? '🔥 Hit!' : '💦 Miss.');
+    render();
+    if (shipsLeft(enemy) === 0) return finish(true);
+    playerTurn = false;
+    setTimeout(aiTurn, 750);
+  }
+
+  function chooseAiShot() {
+    const liveHits = [];
+    for (let i = 0; i < N * N; i++) {
+      const si = mine.owner[i];
+      if (mine.shot[i] && si >= 0 && mine.ships[si].hits < mine.ships[si].cells.length) liveHits.push(i);
+    }
+    // Two or more hits in a line: keep shooting at either end of that line.
+    if (liveHits.length >= 2) {
+      const rs = liveHits.map(i => Math.floor(i / N)), cs = liveHits.map(i => i % N);
+      const opts = [];
+      if (new Set(rs).size === 1) {
+        [Math.min(...cs) - 1, Math.max(...cs) + 1].forEach(c => { if (c >= 0 && c < N && !mine.shot[rs[0] * N + c]) opts.push(rs[0] * N + c); });
+      } else if (new Set(cs).size === 1) {
+        [Math.min(...rs) - 1, Math.max(...rs) + 1].forEach(r => { if (r >= 0 && r < N && !mine.shot[r * N + cs[0]]) opts.push(r * N + cs[0]); });
+      }
+      if (opts.length) return opts[Math.floor(Math.random() * opts.length)];
+    }
+    if (liveHits.length) {
+      const opts = [];
+      liveHits.forEach(i => {
+        const r = Math.floor(i / N), c = i % N;
+        [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].forEach(([rr, cc]) => { if (rr >= 0 && rr < N && cc >= 0 && cc < N && !mine.shot[rr * N + cc]) opts.push(rr * N + cc); });
+      });
+      if (opts.length) return opts[Math.floor(Math.random() * opts.length)];
+    }
+    const parity = [], any = [];
+    for (let i = 0; i < N * N; i++) if (!mine.shot[i]) { any.push(i); if ((Math.floor(i / N) + i % N) % 2 === 0) parity.push(i); }
+    const pool = parity.length ? parity : any;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function aiTurn() {
+    if (gameOver) return;
+    const i = chooseAiShot();
+    const res = fire(mine, i);
+    setStatus(res.sunk ? '😱 They sunk your ' + res.sunk.name + '! Your turn.' : res.hit ? '💥 They hit your ship! Your turn.' : '😅 They missed. Your turn!');
+    render();
+    if (shipsLeft(mine) === 0) return finish(false);
+    playerTurn = true;
+  }
+
+  function finish(won) {
+    gameOver = true;
+    if (won) { wins++; localStorage.setItem('dg_battleship_wins', wins); }
+    render(true);
+    setTimeout(() => {
+      document.getElementById('overTitle').textContent = won ? 'Victory! 🎉' : 'Your Fleet Sank';
+      const shots = enemy.shot.filter(Boolean).length;
+      document.getElementById('overMsg').textContent = won ? 'You sank every ship in ' + shots + ' shots. Total wins: ' + wins : 'The computer found all your ships. Try again!';
+      document.getElementById('overlay').classList.add('show');
+    }, 900);
+  }
+
+  function render(revealEnemy) {
+    enemyEl.innerHTML = '';
+    for (let i = 0; i < N * N; i++) {
+      const d = document.createElement('div');
+      const si = enemy.owner[i];
+      const sunk = si >= 0 && enemy.ships[si].hits === enemy.ships[si].cells.length;
+      d.className = 'cell' + (enemy.shot[i] ? ' shot ' + (si >= 0 ? (sunk ? 'hit sunk' : 'hit') : 'miss') : (revealEnemy && si >= 0 ? ' ship' : ''));
+      d.addEventListener('click', () => playerFire(i));
+      enemyEl.appendChild(d);
+    }
+    mineEl.innerHTML = '';
+    for (let i = 0; i < N * N; i++) {
+      const d = document.createElement('div');
+      const si = mine.owner[i];
+      const sunk = si >= 0 && mine.ships[si].hits === mine.ships[si].cells.length;
+      d.className = 'cell' + (si >= 0 ? ' ship' : '') + (mine.shot[i] ? (si >= 0 ? (sunk ? ' hit sunk' : ' hit') : ' miss') : '');
+      mineEl.appendChild(d);
+    }
+    document.getElementById('enemyLeft').textContent = shipsLeft(enemy);
+    document.getElementById('mineLeft').textContent = shipsLeft(mine);
+  }
+
+  document.getElementById('shuffle').addEventListener('click', () => { if (!started) { mine = placeFleet(); render(); } });
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

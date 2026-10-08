@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Tap Tiles — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<script src="../shared.js" defer></script>
+<style>
+  #board { border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🎹 Tap Tiles</div>
+    <div class="g-stats">Score <b id="score">0</b> Best <b id="best">0</b></div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <canvas id="board" width="320" height="480"></canvas>
+    <div class="g-overlay show" id="overlay">
+      <h2 id="overTitle">Tap Tiles</h2>
+      <p id="overMsg">Tap every dark tile before it slides off the bottom. Don't touch the white!</p>
+      <button class="g-btn" id="again">Start</button>
+    </div>
+  </div>
+  <div class="g-hint">Tap the dark tiles · Missing one or tapping white ends the game</div>
+</div>
+<script>
+(function(){
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, LANES = 4, LW = W / LANES, TH = 120;
+  const NOTES = [261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3, 659.3];
+  let rows, speed, score, running, lastT, wrongFlash, noteIdx, audio;
+  let best = parseInt(localStorage.getItem('dg_taptiles_best') || '0');
+  document.getElementById('best').textContent = best;
+
+  function newRow(y) { return { y, lane: Math.floor(Math.random() * LANES), tapped: false }; }
+
+  function reset() {
+    rows = [];
+    for (let k = 0; k < 6; k++) rows.push(newRow(H - TH * 2 - k * TH));
+    speed = 200; score = 0; running = true; wrongFlash = null; noteIdx = 0;
+    document.getElementById('score').textContent = 0;
+    document.getElementById('overlay').classList.remove('show');
+    lastT = performance.now();
+    requestAnimationFrame(loop);
+  }
+
+  function loop(t) {
+    if (!running) return;
+    const dt = Math.min(0.05, (t - lastT) / 1000);
+    lastT = t;
+    rows.forEach(r => r.y += speed * dt);
+    const missed = rows.find(r => !r.tapped && r.y > H - 6);
+    if (missed) { wrongFlash = { lane: missed.lane, y: H - TH }; return gameOver(); }
+    rows = rows.filter(r => r.y < H);
+    while (rows[rows.length - 1].y > -TH) rows.push(newRow(rows[rows.length - 1].y - TH));
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function playNote() {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = 'triangle';
+      o.frequency.value = NOTES[noteIdx++ % NOTES.length];
+      g.gain.setValueAtTime(0.18, audio.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.35);
+      o.connect(g); g.connect(audio.destination);
+      o.start(); o.stop(audio.currentTime + 0.36);
+    } catch (e) {}
+  }
+
+  function handleTap(clientX, clientY) {
+    if (!running) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * (W / rect.width);
+    const y = (clientY - rect.top) * (H / rect.height);
+    const lane = Math.floor(x / LW);
+    const hit = rows.find(r => !r.tapped && r.lane === lane && y >= r.y && y <= r.y + TH);
+    if (hit) {
+      hit.tapped = true;
+      score++;
+      speed = Math.min(780, 200 + score * 7);
+      document.getElementById('score').textContent = score;
+      playNote();
+      return;
+    }
+    const onTapped = rows.find(r => r.tapped && r.lane === lane && y >= r.y && y <= r.y + TH);
+    if (onTapped) return;
+    wrongFlash = { lane, y: Math.floor(y / 1) - TH / 2 };
+    gameOver();
+  }
+
+  function gameOver() {
+    running = false;
+    draw();
+    if (score > best) { best = score; localStorage.setItem('dg_taptiles_best', best); document.getElementById('best').textContent = best; }
+    setTimeout(() => {
+      document.getElementById('overTitle').textContent = 'Game Over';
+      document.getElementById('overMsg').textContent = 'Score: ' + score + (score >= best && score > 0 ? ' — New best!' : '');
+      document.getElementById('again').textContent = 'Play Again';
+      document.getElementById('overlay').classList.add('show');
+    }, 450);
+  }
+
+  function draw() {
+    ctx.fillStyle = '#eceef6';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#c9cbd8';
+    ctx.lineWidth = 1;
+    for (let i = 1; i < LANES; i++) { ctx.beginPath(); ctx.moveTo(i * LW, 0); ctx.lineTo(i * LW, H); ctx.stroke(); }
+    rows.forEach(r => {
+      ctx.fillStyle = r.tapped ? '#b5b8cc' : '#12131f';
+      ctx.fillRect(r.lane * LW + 2, r.y + 2, LW - 4, TH - 4);
+    });
+    if (wrongFlash) {
+      ctx.fillStyle = 'rgba(255,92,124,0.85)';
+      ctx.fillRect(wrongFlash.lane * LW + 2, wrongFlash.y + 2, LW - 4, TH - 4);
+    }
+  }
+
+  canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); handleTap(e.clientX, e.clientY); });
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+  rows = [newRow(H - TH * 2)];
+  draw();
+})();
+</script>
+</body>
+</html>

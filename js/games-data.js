@@ -350,15 +350,81 @@ window.GAMES_DATA = [
     thumb: "games/towerstack/thumb.svg",
     url: "games/towerstack/index.html",
     w: 320, h: 480
+  },
+  {
+    id: "taptiles",
+    title: "Tap Tiles",
+    slug: "taptiles",
+    category: "Skill",
+    tags: ["Skill", "Music", "Reflex", "Endless"],
+    desc: "Tap every dark tile as the piano keys race down the screen — each tap plays a note. Touch the white and it's over!",
+    thumb: "games/taptiles/thumb.svg",
+    url: "games/taptiles/index.html",
+    w: 320, h: 480
+  },
+  {
+    id: "fruitslice",
+    title: "Fruit Slice",
+    slug: "fruitslice",
+    category: "Arcade",
+    tags: ["Arcade", "Swipe", "Action", "Combo"],
+    desc: "Swipe to slice flying fruit into juicy halves and chain combos. Let three fruits drop or slice a bomb and the game ends.",
+    thumb: "games/fruitslice/thumb.svg",
+    url: "games/fruitslice/index.html",
+    w: 360, h: 520
+  },
+  {
+    id: "skyhopper",
+    title: "Sky Hopper",
+    slug: "skyhopper",
+    category: "Arcade",
+    tags: ["Arcade", "Jumping", "Endless", "Platformer"],
+    desc: "Bounce a frog from cloud to cloud and climb into the stars. Watch out for moving and crumbling clouds — springs send you soaring.",
+    thumb: "games/skyhopper/thumb.svg",
+    url: "games/skyhopper/index.html",
+    w: 320, h: 520
+  },
+  {
+    id: "battleship",
+    title: "Battleship",
+    slug: "battleship",
+    category: "Strategy",
+    tags: ["Strategy", "Classic", "AI", "Naval"],
+    desc: "Hunt down the computer's hidden fleet before it finds yours. The AI hunts smart once it lands a hit — can you sink it first?",
+    thumb: "games/battleship/thumb.svg",
+    url: "games/battleship/index.html",
+    w: 340, h: 600
+  },
+  {
+    id: "dotsboxes",
+    title: "Dots & Boxes",
+    slug: "dotsboxes",
+    category: "Multiplayer",
+    tags: ["Multiplayer", "Two Player", "AI", "Classic", "Strategy"],
+    desc: "The pen-and-paper classic: take turns drawing lines and close boxes to claim them. Play vs the computer or a friend on the same device.",
+    thumb: "games/dotsboxes/thumb.svg",
+    url: "games/dotsboxes/index.html",
+    w: 340, h: 420
+  },
+  {
+    id: "snakesladders",
+    title: "Snakes & Ladders",
+    slug: "snakesladders",
+    category: "Multiplayer",
+    tags: ["Multiplayer", "Two Player", "AI", "Board Game", "Dice"],
+    desc: "Roll the dice and race to square 100 — climb ladders, dodge snakes, and roll a 6 to go again. Play vs the computer or a friend.",
+    thumb: "games/snakesladders/thumb.svg",
+    url: "games/snakesladders/index.html",
+    w: 340, h: 440
   }
 ];
 
 window.CATEGORIES = [
-  { name: "Arcade", count: 8 },
+  { name: "Arcade", count: 10 },
   { name: "Puzzle", count: 9 },
-  { name: "Strategy", count: 4 },
-  { name: "Skill", count: 6 },
+  { name: "Strategy", count: 5 },
+  { name: "Skill", count: 7 },
   { name: "Word", count: 2 },
   { name: "Cards", count: 1 },
-  { name: "Multiplayer", count: 2 }
+  { name: "Multiplayer", count: 4 }
 ];

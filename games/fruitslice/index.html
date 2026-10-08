@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Fruit Slice — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<script src="../shared.js" defer></script>
+<style>
+  #board { border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: radial-gradient(circle at 50% 30%, #2a1d3d, #120f1f); cursor: crosshair; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🍉 Fruit Slice</div>
+    <div class="g-stats">Score <b id="score">0</b> Best <b id="best">0</b> Lives <b id="lives">❤️❤️❤️</b></div>
+    <button class="g-btn ghost" id="restart">Restart</button>
+  </div>
+  <div class="g-stage">
+    <canvas id="board" width="360" height="520"></canvas>
+    <div class="g-overlay show" id="overlay">
+      <h2 id="overTitle">Fruit Slice</h2>
+      <p id="overMsg">Swipe across fruit to slice it. Don't let fruit drop — and never slice a bomb!</p>
+      <button class="g-btn" id="again">Start</button>
+    </div>
+  </div>
+  <div class="g-hint" data-touch="Swipe your finger through the fruit · Avoid 💣">Hold the mouse button and drag through the fruit · Avoid 💣</div>
+</div>
+<script>
+(function(){
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, R = 26, G = 900;
+  const FRUITS = ['🍉', '🍊', '🍎', '🍍', '🍋', '🍓', '🥝', '🍑'];
+  const JUICE = { '🍉': '#ff5c7c', '🍊': '#ff9f43', '🍎': '#ff3b3b', '🍍': '#f5d524', '🍋': '#f5e524', '🍓': '#ff3b6b', '🥝': '#7ed957', '🍑': '#ffb38a' };
+  let items, halves, particles, trail, score, lives, running, lastT, spawnTimer, slicing, combo, comboTimer, popups;
+  let best = parseInt(localStorage.getItem('dg_fruitslice_best') || '0');
+  document.getElementById('best').textContent = best;
+
+  function reset() {
+    items = []; halves = []; particles = []; trail = []; popups = [];
+    score = 0; lives = 3; running = true; spawnTimer = 0.4; combo = 0; comboTimer = 0;
+    updateHud();
+    document.getElementById('overlay').classList.remove('show');
+    lastT = performance.now();
+    requestAnimationFrame(loop);
+  }
+
+  function updateHud() {
+    document.getElementById('score').textContent = score;
+    document.getElementById('lives').textContent = '❤️'.repeat(lives) + '🖤'.repeat(3 - lives);
+  }
+
+  function spawnWave() {
+    const count = 1 + Math.floor(Math.random() * Math.min(4, 1 + score / 12));
+    for (let i = 0; i < count; i++) {
+      const bomb = score > 4 && Math.random() < Math.min(0.22, 0.08 + score / 300);
+      const x = 50 + Math.random() * (W - 100);
+      items.push({
+        x, y: H + R,
+        vx: (W / 2 - x) * (0.5 + Math.random() * 0.6) + (Math.random() - 0.5) * 60,
+        vy: -(620 + Math.random() * 180),
+        rot: 0, vr: (Math.random() - 0.5) * 6,
+        emoji: bomb ? '💣' : FRUITS[Math.floor(Math.random() * FRUITS.length)],
+        bomb, sliced: false
+      });
+    }
+  }
+
+  function loop(t) {
+    if (!running) return;
+    const dt = Math.min(0.033, (t - lastT) / 1000);
+    lastT = t;
+
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) { spawnWave(); spawnTimer = Math.max(0.7, 1.6 - score * 0.012); }
+
+    items.forEach(it => { it.vy += G * dt; it.x += it.vx * dt; it.y += it.vy * dt; it.rot += it.vr * dt; });
+    halves.forEach(h => { h.vy += G * dt; h.x += h.vx * dt; h.y += h.vy * dt; h.rot += h.vr * dt; });
+    particles.forEach(p => { p.vy += G * 0.6 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; });
+    popups.forEach(p => { p.y -= 40 * dt; p.life -= dt; });
+
+    items = items.filter(it => {
+      if (it.y > H + R * 2 && it.vy > 0) {
+        if (!it.bomb && !it.sliced && running) { lives = Math.max(0, lives - 1); updateHud(); if (lives === 0) gameOver(); }
+        return false;
+      }
+      return true;
+    });
+    halves = halves.filter(h => h.y < H + 60);
+    particles = particles.filter(p => p.life > 0);
+    popups = popups.filter(p => p.life > 0);
+    trail = trail.filter(p => t - p.t < 140);
+
+    if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) { if (combo >= 3) { score += combo; popups.push({ x: W / 2, y: H / 2, text: combo + 'x COMBO +' + combo, life: 1 }); updateHud(); } combo = 0; } }
+
+    draw();
+    if (running) requestAnimationFrame(loop);
+  }
+
+  function segmentHits(ax, ay, bx, by, cx, cy, r) {
+    const dx = bx - ax, dy = by - ay;
+    const len2 = dx * dx + dy * dy || 1;
+    let k = ((cx - ax) * dx + (cy - ay) * dy) / len2;
+    k = Math.max(0, Math.min(1, k));
+    const px = ax + k * dx, py = ay + k * dy;
+    return (cx - px) * (cx - px) + (cy - py) * (cy - py) <= r * r;
+  }
+
+  function slice(x0, y0, x1, y1) {
+    items.forEach(it => {
+      if (it.sliced || !segmentHits(x0, y0, x1, y1, it.x, it.y, R)) return;
+      it.sliced = true;
+      if (it.bomb) { explode(it); return; }
+      score++; combo++; comboTimer = 0.25; updateHud();
+      const ang = Math.atan2(y1 - y0, x1 - x0);
+      const nx = -Math.sin(ang), ny = Math.cos(ang);
+      [-1, 1].forEach(s => halves.push({ x: it.x, y: it.y, vx: it.vx * 0.4 + nx * s * 120, vy: Math.min(it.vy, 0) * 0.3 + ny * s * 120 - 80, rot: it.rot, vr: s * 5, emoji: it.emoji, side: s, ang }));
+      for (let i = 0; i < 12; i++) particles.push({ x: it.x, y: it.y, vx: (Math.random() - 0.5) * 360, vy: (Math.random() - 0.8) * 320, life: 0.5 + Math.random() * 0.3, color: JUICE[it.emoji] || '#ff5c7c' });
+    });
+    items = items.filter(it => !it.sliced || it.bomb);
+  }
+
+  function explode(it) {
+    for (let i = 0; i < 40; i++) particles.push({ x: it.x, y: it.y, vx: (Math.random() - 0.5) * 700, vy: (Math.random() - 0.5) * 700, life: 0.8, color: i % 2 ? '#f5a524' : '#f2f3f8' });
+    gameOver(true);
+  }
+
+  function gameOver(byBomb) {
+    if (!running) return;
+    running = false;
+    draw();
+    if (score > best) { best = score; localStorage.setItem('dg_fruitslice_best', best); document.getElementById('best').textContent = best; }
+    setTimeout(() => {
+      document.getElementById('overTitle').textContent = byBomb ? '💥 Boom!' : 'Game Over';
+      document.getElementById('overMsg').textContent = 'Score: ' + score + (score >= best && score > 0 ? ' — New best!' : '');
+      document.getElementById('again').textContent = 'Play Again';
+      document.getElementById('overlay').classList.add('show');
+    }, 500);
+  }
+
+  function drawEmoji(e, x, y, rot, size) {
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(rot);
+    ctx.font = size + 'px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(e, 0, 2);
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.life * 1.6); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2); ctx.fill(); });
+    ctx.globalAlpha = 1;
+    items.forEach(it => drawEmoji(it.emoji, it.x, it.y, it.rot, R * 2));
+    halves.forEach(h => {
+      ctx.save();
+      ctx.translate(h.x, h.y); ctx.rotate(h.ang);
+      ctx.beginPath();
+      if (h.side < 0) ctx.rect(-R * 2, -R * 2, R * 4, R * 2); else ctx.rect(-R * 2, 0, R * 4, R * 2);
+      ctx.clip();
+      ctx.rotate(-h.ang + h.rot);
+      ctx.font = (R * 2) + 'px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(h.emoji, 0, 2);
+      ctx.restore();
+    });
+    if (trail.length > 1) {
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (let i = 1; i < trail.length; i++) {
+        ctx.strokeStyle = 'rgba(242,243,248,' + (i / trail.length) + ')';
+        ctx.lineWidth = 2 + 6 * (i / trail.length);
+        ctx.beginPath(); ctx.moveTo(trail[i - 1].x, trail[i - 1].y); ctx.lineTo(trail[i].x, trail[i].y); ctx.stroke();
+      }
+    }
+    popups.forEach(p => { ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = '#f5a524'; ctx.font = '800 26px Outfit, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(p.text, p.x, p.y); });
+    ctx.globalAlpha = 1;
+  }
+
+  function toCanvas(e) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: (e.clientX - rect.left) * (W / rect.width), y: (e.clientY - rect.top) * (H / rect.height), t: performance.now() };
+  }
+  canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); slicing = true; trail = [toCanvas(e)]; canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!slicing || !running) return;
+    const p = toCanvas(e);
+    const last = trail[trail.length - 1];
+    if (last) slice(last.x, last.y, p.x, p.y);
+    trail.push(p);
+  });
+  ['pointerup', 'pointercancel'].forEach(ev => canvas.addEventListener(ev, () => { slicing = false; }));
+
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('again').addEventListener('click', reset);
+})();
+</script>
+</body>
+</html>

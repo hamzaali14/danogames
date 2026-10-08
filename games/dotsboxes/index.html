@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Dots &amp; Boxes — DanoGames</title>
+<link rel="stylesheet" href="../shared.css">
+<script src="../shared.js" defer></script>
+<style>
+  #vsRow { display: flex; gap: 10px; width: 340px; margin-bottom: 8px; }
+  .vsCard { flex: 1; background: #171826; border-radius: 10px; padding: 8px 10px; text-align: center; border: 2px solid transparent; transition: border-color .2s ease; }
+  .vsCard .name { font-size: 12px; color: #9295ad; font-weight: 700; text-transform: uppercase; }
+  .vsCard .val { font-size: 22px; font-weight: 800; }
+  #p1Card.active { border-color: #a855f7; }
+  #p2Card.active { border-color: #22d3ee; }
+  #board { width: 340px; height: 340px; display: block; background: #12131f; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08); }
+  .hit { fill: transparent; cursor: pointer; }
+  .line { stroke-linecap: round; stroke-width: 7; }
+  .line.p1 { stroke: #a855f7; }
+  .line.p2 { stroke: #22d3ee; }
+  .line.last { stroke-width: 9; filter: drop-shadow(0 0 4px rgba(255,255,255,0.6)); }
+  .ghost { stroke: rgba(255,255,255,0.07); stroke-width: 5; stroke-linecap: round; }
+  .box.p1 { fill: rgba(168,85,247,0.28); }
+  .box.p2 { fill: rgba(34,211,238,0.28); }
+  .dot { fill: #f2f3f8; }
+  #modeChoice { display: flex; flex-direction: column; gap: 12px; width: 100%; align-items: center; }
+  #modeChoice button { width: 100%; max-width: 280px; }
+</style>
+</head>
+<body>
+<div class="g-shell">
+  <div class="g-hud">
+    <div class="g-title">🔲 Dots &amp; Boxes</div>
+    <div class="g-stats"><span id="turnText">Your move</span></div>
+    <button class="g-btn ghost" id="restart">New Match</button>
+  </div>
+  <div class="g-stage">
+    <div style="display:flex; flex-direction:column; align-items:center;">
+      <div id="vsRow">
+        <div class="vsCard" id="p1Card"><div class="name" id="p1Label">Player 1</div><div class="val" id="p1Score">0</div></div>
+        <div class="vsCard" id="p2Card"><div class="name" id="p2Label">Computer</div><div class="val" id="p2Score">0</div></div>
+      </div>
+      <svg id="board" viewBox="0 0 340 340"></svg>
+    </div>
+    <div class="g-overlay show" id="overlay">
+      <h2 id="overTitle">Dots &amp; Boxes</h2>
+      <p id="overMsg">Take turns drawing lines. Close a box to claim it and go again. Most boxes wins!</p>
+      <div id="modeChoice">
+        <button class="g-btn" id="vsComputer">Play vs Computer</button>
+        <button class="g-btn ghost" id="vsFriend">Play vs Friend (pass &amp; play)</button>
+      </div>
+      <button class="g-btn" id="again" style="display:none">Play Again</button>
+    </div>
+  </div>
+  <div class="g-hint">Tap between two dots to draw a line · Finish a box to score and move again</div>
+</div>
+<script>
+(function(){
+  const N = 5, M = 30, S = 56;
+  const svg = document.getElementById('board');
+  const NS = 'http://www.w3.org/2000/svg';
+  let H, V, boxes, turn, mode, scores, busy, over, last;
+
+  function reset() {
+    document.getElementById('overTitle').textContent = 'Dots & Boxes';
+    document.getElementById('overMsg').textContent = 'Take turns drawing lines. Close a box to claim it and go again. Most boxes wins!';
+    document.getElementById('modeChoice').style.display = 'flex';
+    document.getElementById('again').style.display = 'none';
+    document.getElementById('overlay').classList.add('show');
+    over = true;
+  }
+
+  function start(m) {
+    mode = m;
+    H = Array.from({ length: N + 1 }, () => Array(N).fill(0));
+    V = Array.from({ length: N }, () => Array(N + 1).fill(0));
+    boxes = Array.from({ length: N }, () => Array(N).fill(0));
+    turn = 1; scores = { 1: 0, 2: 0 }; busy = false; over = false; last = null;
+    document.getElementById('p2Label').textContent = mode === 'ai' ? 'Computer' : 'Player 2';
+    document.getElementById('p1Label').textContent = mode === 'ai' ? 'You' : 'Player 1';
+    document.getElementById('overlay').classList.remove('show');
+    render();
+  }
+
+  const sides = (h, v, r, c) => (h[r][c] ? 1 : 0) + (h[r + 1][c] ? 1 : 0) + (v[r][c] ? 1 : 0) + (v[r][c + 1] ? 1 : 0);
+  function adjBoxes(m) {
+    const out = [];
+    if (m.t === 'h') { if (m.r > 0) out.push([m.r - 1, m.c]); if (m.r < N) out.push([m.r, m.c]); }
+    else { if (m.c > 0) out.push([m.r, m.c - 1]); if (m.c < N) out.push([m.r, m.c]); }
+    return out;
+  }
+  function allMoves(h, v) {
+    const ms = [];
+    for (let r = 0; r <= N; r++) for (let c = 0; c < N; c++) if (!h[r][c]) ms.push({ t: 'h', r, c });
+    for (let r = 0; r < N; r++) for (let c = 0; c <= N; c++) if (!v[r][c]) ms.push({ t: 'v', r, c });
+    return ms;
+  }
+  const set = (h, v, m, val) => { (m.t === 'h' ? h : v)[m.r][m.c] = val; };
+  const completes = (h, v, m) => adjBoxes(m).filter(([r, c]) => sides(h, v, r, c) === 3).length;
+
+  function play(m) {
+    if (over || busy || (m.t === 'h' ? H : V)[m.r][m.c]) return;
+    if (mode === 'ai' && turn === 2 && !m.fromAi) return;
+    set(H, V, m, turn);
+    last = m;
+    let closed = 0;
+    adjBoxes(m).forEach(([r, c]) => { if (sides(H, V, r, c) === 4) { boxes[r][c] = turn; closed++; } });
+    scores[turn] += closed;
+    if (!closed) turn = turn === 1 ? 2 : 1;
+    render();
+    if (allMoves(H, V).length === 0) return finish();
+    if (mode === 'ai' && turn === 2) { busy = true; setTimeout(() => { busy = false; aiMove(); }, 420); }
+  }
+
+  // How many boxes the opponent could grab in a row after we play m.
+  function giveaway(m) {
+    const h = H.map(r => r.slice()), v = V.map(r => r.slice());
+    set(h, v, m, 1);
+    let taken = 0, found = true;
+    while (found) {
+      found = false;
+      for (const mm of allMoves(h, v)) { const k = completes(h, v, mm); if (k) { set(h, v, mm, 1); taken += k; found = true; break; } }
+    }
+    return taken;
+  }
+
+  function aiMove() {
+    if (over) return;
+    const moves = allMoves(H, V);
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const scoring = moves.filter(m => completes(H, V, m) > 0);
+    let choice;
+    if (scoring.length) choice = pick(scoring);
+    else {
+      const safe = moves.filter(m => adjBoxes(m).every(([r, c]) => sides(H, V, r, c) < 2));
+      if (safe.length) choice = pick(safe);
+      else {
+        let bestCost = Infinity, bestMoves = [];
+        moves.forEach(m => { const g = giveaway(m); if (g < bestCost) { bestCost = g; bestMoves = [m]; } else if (g === bestCost) bestMoves.push(m); });
+        choice = pick(bestMoves);
+      }
+    }
+    choice.fromAi = true;
+    play(choice);
+  }
+
+  function finish() {
+    over = true;
+    const [a, b] = [scores[1], scores[2]];
+    let title;
+    if (a === b) title = "It's a Draw!";
+    else if (mode === 'ai') title = a > b ? 'You Win! 🎉' : 'Computer Wins';
+    else title = (a > b ? 'Player 1' : 'Player 2') + ' Wins! 🎉';
+    setTimeout(() => {
+      document.getElementById('overTitle').textContent = title;
+      document.getElementById('overMsg').textContent = 'Final boxes — ' + document.getElementById('p1Label').textContent + ': ' + a + ' · ' + document.getElementById('p2Label').textContent + ': ' + b;
+      document.getElementById('modeChoice').style.display = 'none';
+      document.getElementById('again').style.display = 'block';
+      document.getElementById('overlay').classList.add('show');
+    }, 600);
+  }
+
+  function el(tag, attrs) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+
+  function render() {
+    svg.innerHTML = '';
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (boxes[r][c]) svg.appendChild(el('rect', { x: M + c * S + 4, y: M + r * S + 4, width: S - 8, height: S - 8, rx: 8, class: 'box p' + boxes[r][c] }));
+    const lineAttrs = (m) => m.t === 'h'
+      ? { x1: M + m.c * S, y1: M + m.r * S, x2: M + (m.c + 1) * S, y2: M + m.r * S }
+      : { x1: M + m.c * S, y1: M + m.r * S, x2: M + m.c * S, y2: M + (m.r + 1) * S };
+    const drawLine = (m, owner) => {
+      const isLast = last && last.t === m.t && last.r === m.r && last.c === m.c;
+      svg.appendChild(el('line', Object.assign(lineAttrs(m), { class: owner ? 'line p' + owner + (isLast ? ' last' : '') : 'ghost' })));
+      if (!owner) {
+        const hit = m.t === 'h'
+          ? { x: M + m.c * S + 10, y: M + m.r * S - 16, width: S - 20, height: 32 }
+          : { x: M + m.c * S - 16, y: M + m.r * S + 10, width: 32, height: S - 20 };
+        const rect = el('rect', Object.assign(hit, { class: 'hit' }));
+        rect.addEventListener('pointerdown', (e) => { e.preventDefault(); play(m); });
+        svg.appendChild(rect);
+      }
+    };
+    for (let r = 0; r <= N; r++) for (let c = 0; c < N; c++) drawLine({ t: 'h', r, c }, H[r][c]);
+    for (let r = 0; r < N; r++) for (let c = 0; c <= N; c++) drawLine({ t: 'v', r, c }, V[r][c]);
+    for (let r = 0; r <= N; r++) for (let c = 0; c <= N; c++) svg.appendChild(el('circle', { cx: M + c * S, cy: M + r * S, r: 6, class: 'dot' }));
+
+    document.getElementById('p1Score').textContent = scores[1];
+    document.getElementById('p2Score').textContent = scores[2];
+    document.getElementById('p1Card').classList.toggle('active', turn === 1);
+    document.getElementById('p2Card').classList.toggle('active', turn === 2);
+    document.getElementById('turnText').textContent = turn === 1 ? (mode === 'ai' ? 'Your move' : 'Player 1 to move') : (mode === 'ai' ? 'Computer thinking…' : 'Player 2 to move');
+  }
+
+  document.getElementById('vsComputer').addEventListener('click', () => start('ai'));
+  document.getElementById('vsFriend').addEventListener('click', () => start('pvp'));
+  document.getElementById('again').addEventListener('click', reset);
+  document.getElementById('restart').addEventListener('click', reset);
+  H = Array.from({ length: N + 1 }, () => Array(N).fill(0));
+  V = Array.from({ length: N }, () => Array(N + 1).fill(0));
+  boxes = Array.from({ length: N }, () => Array(N).fill(0));
+  turn = 1; scores = { 1: 0, 2: 0 }; mode = 'ai';
+  render();
+  reset();
+})();
+</script>
+</body>
+</html>
